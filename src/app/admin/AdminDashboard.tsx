@@ -6,10 +6,11 @@ import ContentTab from './components/ContentTab'
 import AnalyticsTab from './components/AnalyticsTab'
 import TicketsTab from './components/TicketsTab'
 import PromoTab from './components/PromoTab'
+import TicketPreviewTab from './components/TicketPreviewTab'
 import { CONTENT_BLOCKS, type ContentBlockId } from './components/content-blocks'
 import styles from './dashboard.module.css'
 
-type TabId = 'dashboard' | 'content' | 'tickets' | 'promo'
+type TabId = 'dashboard' | 'content' | 'tickets' | 'promo' | 'ticket-preview'
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState<TabId>('dashboard')
@@ -77,6 +78,7 @@ export default function AdminDashboard() {
           <button type="button" className={tab === 'dashboard' ? styles.tabActive : styles.tab} onClick={() => setTab('dashboard')}>Дашборд</button>
           <button type="button" className={tab === 'content' ? styles.tabActive : styles.tab} onClick={() => setTab('content')}>Контент сайту</button>
           <button type="button" className={tab === 'tickets' ? styles.tabActive : styles.tab} onClick={() => setTab('tickets')}>Квитки</button>
+          <button type="button" className={tab === 'ticket-preview' ? styles.tabActive : styles.tab} onClick={() => setTab('ticket-preview')}>Вигляд квитка</button>
           <button type="button" className={tab === 'promo' ? styles.tabActive : styles.tab} onClick={() => setTab('promo')}>Промокоди</button>
         </nav>
 
@@ -112,6 +114,7 @@ export default function AdminDashboard() {
         )}
         {tab === 'content' && !content && <p className={styles.loading}>Завантаження контенту…</p>}
         {tab === 'tickets' && <TicketsTab />}
+        {tab === 'ticket-preview' && <TicketPreviewTab />}
         {tab === 'promo' && <PromoTab />}
       </main>
     </div>

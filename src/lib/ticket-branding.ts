@@ -1,74 +1,89 @@
 import fs from 'fs/promises'
 import path from 'path'
 import sharp from 'sharp'
-import { getSiteContent } from './site-content'
 
-const DEFAULT_LOGO_PATH = '/images/logo/proyav-logo.png'
+export const TICKET_HEADER_PATH = '/images/ticket/ticket-header.png'
+export const TICKET_HEADER_NATIVE_WIDTH = 1171
+export const TICKET_HEADER_NATIVE_HEIGHT = 298
+export const TICKET_HEADER_ASPECT = TICKET_HEADER_NATIVE_HEIGHT / TICKET_HEADER_NATIVE_WIDTH
 
-async function removeDarkBackground(buffer: Buffer): Promise<Buffer> {
-  const image = sharp(buffer).ensureAlpha()
-  const { width, height } = await image.metadata()
-  if (!width || !height) return buffer
+export const TICKET_CARD_X = 48
+export const TICKET_CARD_WIDTH = 984
+export const TICKET_FONT_FAMILY = 'Montserrat, Arial, sans-serif'
 
-  const { data } = await image.raw().toBuffer({ resolveWithObject: true })
-  const pixels = new Uint8Array(data)
-
-  for (let i = 0; i < pixels.length; i += 4) {
-    const r = pixels[i]
-    const g = pixels[i + 1]
-    const b = pixels[i + 2]
-    if (r < 40 && g < 40 && b < 40) {
-      pixels[i + 3] = 0
-    }
-  }
-
-  return sharp(pixels, { raw: { width, height, channels: 4 } }).png().toBuffer()
+const FONT_FILES: Record<number, string> = {
+  400: 'Montserrat-Regular.ttf',
+  600: 'Montserrat-SemiBold.ttf',
+  700: 'Montserrat-Bold.ttf',
 }
 
-export async function loadTicketLogo(logoPath?: string): Promise<Buffer> {
-  const content = await getSiteContent()
-  const rel = logoPath ?? content.assets.logo ?? DEFAULT_LOGO_PATH
-  const fullPath = path.join(process.cwd(), 'public', rel.replace(/^\//, ''))
+let montserratFontFaces: string | null = null
 
-  try {
-    const raw = await fs.readFile(fullPath)
-    const resized = await sharp(raw).resize(800, null, { fit: 'inside' }).png().toBuffer()
-    return removeDarkBackground(resized)
-  } catch {
-    const fallbackPath = path.join(process.cwd(), 'public', DEFAULT_LOGO_PATH.replace(/^\//, ''))
-    const raw = await fs.readFile(fallbackPath)
-    const resized = await sharp(raw).resize(800, null, { fit: 'inside' }).png().toBuffer()
-    return removeDarkBackground(resized)
-  }
+export function getTicketHeaderHeight(width = TICKET_CARD_WIDTH): number {
+  return Math.round(width * TICKET_HEADER_ASPECT)
 }
 
-export async function getTicketLogoBase64(logoPath?: string): Promise<string> {
-  const buffer = await loadTicketLogo(logoPath)
+async function readHeaderFile(): Promise<Buffer> {
+  const fullPath = path.join(process.cwd(), 'public', TICKET_HEADER_PATH.replace(/^\//, ''))
+  return fs.readFile(fullPath)
+}
+
+export async function loadTicketHeaderImage(targetWidth = TICKET_CARD_WIDTH): Promise<Buffer> {
+  const raw = await readHeaderFile()
+  const targetHeight = getTicketHeaderHeight(targetWidth)
+  return sharp(raw)
+    .resize(targetWidth, targetHeight, { fit: 'cover', position: 'centre' })
+    .png()
+    .toBuffer()
+}
+
+export async function getTicketHeaderBase64(targetWidth = TICKET_CARD_WIDTH): Promise<string> {
+  const buffer = await loadTicketHeaderImage(targetWidth)
   return buffer.toString('base64')
 }
 
-export function buildTicketHeaderDecorSvg(): string {
-  return `
-  <g opacity="0.14" stroke="#9a7858" stroke-width="1.5" fill="none">
-    <path d="M88 88 L148 118 L118 178 L58 148 Z"/>
-    <path d="M952 96 L892 136 L922 196 L982 156 Z"/>
-    <path d="M120 220 L170 250 L150 300"/>
-    <path d="M960 228 L910 258 L930 308"/>
-  </g>
-  <g opacity="0.08" fill="#c59367">
-    <circle cx="180" cy="160" r="3"/>
-    <circle cx="900" cy="180" r="2.5"/>
-    <circle cx="220" cy="300" r="2"/>
-    <circle cx="860" cy="290" r="2.5"/>
-  </g>`
+export async function getTicketMontserratFontFaces(): Promise<string> {
+  if (montserratFontFaces) return montserratFontFaces
+
+  const faces = await Promise.all(
+    Object.entries(FONT_FILES).map(async ([weight, filename]) => {
+      const fontPath = path.join(process.cwd(), 'public/fonts', filename)
+      const buffer = await fs.readFile(fontPath)
+      const base64 = buffer.toString('base64')
+      return `@font-face{font-family:'Montserrat';src:url('data:font/ttf;base64,${base64}') format('truetype');font-weight:${weight};font-style:normal;}`
+    }),
+  )
+
+  montserratFontFaces = faces.join('')
+  return montserratFontFaces
 }
 
-export function buildTicketHeaderSvg(logoBase64: string): string {
+export async function buildTicketHeaderSvg(headerBase64: string, width = TICKET_CARD_WIDTH): Promise<string> {
+  const x = TICKET_CARD_X
+  const height = getTicketHeaderHeight(width)
+  const titleY = x + height + 58
+  const fontFace = await getTicketMontserratFontFaces()
+
   return `
-  <rect x="48" y="48" width="984" height="360" rx="48" fill="#f9f6f1"/>
-  ${buildTicketHeaderDecorSvg()}
-  <image x="360" y="72" width="360" height="166" href="data:image/png;base64,${logoBase64}" preserveAspectRatio="xMidYMid meet"/>
-  <line x1="340" y1="268" x2="740" y2="268" stroke="#c59367" stroke-width="1.5" opacity="0.5"/>
-  <text x="540" y="318" text-anchor="middle" fill="#3d2e26" font-family="Georgia, 'Times New Roman', serif" font-size="40" font-weight="700">Твій квиток на PROяв івент</text>
-  <rect x="480" y="348" width="120" height="6" rx="3" fill="url(#accent)"/>`
+  <defs>
+    <style>${fontFace}</style>
+    <clipPath id="ticketHeaderClip">
+      <rect x="${x}" y="${x}" width="${width}" height="${height}" rx="48" ry="48"/>
+    </clipPath>
+  </defs>
+  <image
+    x="${x}"
+    y="${x}"
+    width="${width}"
+    height="${height}"
+    href="data:image/png;base64,${headerBase64}"
+    clip-path="url(#ticketHeaderClip)"
+    preserveAspectRatio="xMidYMid slice"
+  />
+  <text x="${x + width / 2}" y="${titleY}" text-anchor="middle" fill="#3d2e26" font-family="${TICKET_FONT_FAMILY}" font-size="38" font-weight="700">Твій квиток на PROяв івент</text>
+  <rect x="${x + width / 2 - 60}" y="${titleY + 18}" width="120" height="6" rx="3" fill="url(#accent)"/>`
+}
+
+export function getTicketContentStartY(width = TICKET_CARD_WIDTH): number {
+  return TICKET_CARD_X + getTicketHeaderHeight(width) + 108
 }

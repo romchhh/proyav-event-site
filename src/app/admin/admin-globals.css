@@ -1192,3 +1192,91 @@
     grid-template-columns: 1fr;
   }
 }
+
+.adminTicketPreview {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 760px;
+}
+
+.adminTicketPreviewIntro {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.adminTicketPreviewControls {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 18px;
+  background: #fff;
+  border: 1px solid #e8ddd2;
+}
+
+.adminTicketPreviewModes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.adminTicketPreviewFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.adminTicketPreviewFields .adminField select {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px solid #e8ddd2;
+  background: #faf6f1;
+  color: #1a1210;
+}
+
+.adminTicketPreviewActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.adminTicketPreviewDownload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.adminTicketPreviewFrame {
+  position: relative;
+  padding: 20px;
+  border-radius: 22px;
+  background: #fff;
+  border: 1px solid #e8ddd2;
+  text-align: center;
+}
+
+.adminTicketPreviewImage {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  height: auto;
+  border-radius: 18px;
+  box-shadow: 0 18px 48px rgba(26, 18, 16, 0.12);
+}
+
+.adminTicketPreviewLoading {
+  margin: 16px 0 0;
+  font-size: 14px;
+  color: #8a7d72;
+}
+
+@media (max-width: 768px) {
+  .adminTicketPreviewFields {
+    grid-template-columns: 1fr;
+  }
+}
