@@ -89,9 +89,12 @@ export async function sendTicketEmail(order: StoredOrder) {
             <tr>
               <td style="padding:0 32px 32px;">
                 <div style="padding:18px 20px;border-radius:16px;background:#faf6f1;border-left:4px solid #b8956f;">
-                  <p style="margin:0;font-size:14px;line-height:1.7;color:#5c4a40;">
-                    Після оплати ти автоматично долучишся до Telegram-чату комʼюніті події — там будуть фото, відео та всі оновлення.
+                  <p style="margin:0 0 14px;font-size:14px;line-height:1.7;color:#5c4a40;">
+                    Долучайся до Telegram-чату <strong>PROяв: знайомства</strong> — там збираються учасниці події, оновлення та знайомства перед івентом.
                   </p>
+                  <a href="${links.telegram}" style="display:inline-block;padding:12px 20px;border-radius:999px;background:#b8956f;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">
+                    Перейти в чат
+                  </a>
                 </div>
                 <p style="margin:24px 0 0;font-size:14px;line-height:1.7;color:#8a7d72;text-align:center;">
                   Питання? <a href="mailto:${links.email}" style="color:#9a7858;">${links.email}</a>
@@ -117,6 +120,7 @@ export async function sendTicketEmail(order: StoredOrder) {
     `У вкладенні — файл-запрошення ${filename} з QR-кодом для входу.`,
     `Посилання на квиток: ${qrPayload}`,
     '',
+    `Telegram-чат події: ${links.telegram}`,
     `Питання: ${links.email}`,
   ].join('\n')
 

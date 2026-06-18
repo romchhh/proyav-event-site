@@ -49,6 +49,9 @@ export const VERDICT_LABELS: Record<TicketVerdict, string> = {
   rejected: 'Відхилено',
 }
 
+export const UPGRADED_TICKET_MESSAGE =
+  'Гість оновив тариф — цей QR недійсний. Попросіть знайти новий квиток на email (перевірити «Спам»).'
+
 export function evaluateTicket(order: StoredOrder | null) {
   if (!order) {
     return {
@@ -64,7 +67,12 @@ export function evaluateTicket(order: StoredOrder | null) {
       verdict: 'not_paid' as const,
       ok: false,
       title: 'Не OK',
-      message: order.status === 'pending' ? 'Оплата ще в обробці' : 'Квиток не оплачений',
+      message:
+        order.status === 'upgraded'
+          ? UPGRADED_TICKET_MESSAGE
+          : order.status === 'pending'
+            ? 'Оплата ще в обробці'
+            : 'Квиток не оплачений',
     }
   }
 

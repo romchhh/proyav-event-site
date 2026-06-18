@@ -163,13 +163,33 @@ function SuccessContent() {
           </p>
         )}
 
+        {isPaid && (
+          <div className={styles.telegramBlock}>
+            <p className={styles.telegramTitle}>Приєднуйся до чату PROяв: знайомства</p>
+            <p className={styles.telegramText}>
+              Там збираються учасниці події з Тернополя та інших міст — оновлення, знайомства та атмосфера перед івентом.
+            </p>
+            <a href={LINKS.telegram} target="_blank" rel="noopener noreferrer" className={styles.telegramBtn}>
+              Перейти в чат
+            </a>
+          </div>
+        )}
+
         <div className={styles.actions}>
-          <a href={LINKS.telegram} target="_blank" rel="noopener noreferrer" className={styles.primary}>
-            Telegram-чат події
-          </a>
-          <Link href="/#kvitky" className={styles.secondary}>
-            На головну
-          </Link>
+          {isPaid ? (
+            <Link href="/#kvitky" className={styles.secondary}>
+              На головну
+            </Link>
+          ) : (
+            <>
+              <a href={LINKS.telegram} target="_blank" rel="noopener noreferrer" className={styles.primary}>
+                Перейти в чат
+              </a>
+              <Link href="/#kvitky" className={styles.secondary}>
+                На головну
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </div>

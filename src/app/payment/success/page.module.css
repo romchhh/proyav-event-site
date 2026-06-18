@@ -188,6 +188,50 @@
   color: var(--brown);
 }
 
+.telegramBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 22px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(184, 149, 111, 0.12) 0%, rgba(184, 149, 111, 0.04) 100%);
+  border: 1px solid rgba(184, 149, 111, 0.25);
+}
+
+.telegramTitle {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--brown);
+}
+
+.telegramText {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--brown-soft);
+}
+
+.telegramBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  padding: 12px 20px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--rose-gold) 0%, var(--rose-gold-dark) 100%);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: var(--shadow-glow);
+  transition: transform 0.2s;
+}
+
+.telegramBtn:hover {
+  transform: translateY(-2px);
+}
+
 @media (max-width: 480px) {
   .card {
     padding: 32px 24px;

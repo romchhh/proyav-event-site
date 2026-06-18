@@ -90,6 +90,7 @@ function initSchema(db: Database.Database) {
   `)
 
   migrateOrdersCheckIn(db)
+  migrateOrdersUpgrade(db)
   migrateTicketScans(db)
 
   db.exec(`
@@ -115,6 +116,21 @@ function migrateOrdersCheckIn(db: Database.Database) {
   }
   if (!names.has('check_in_note')) {
     db.exec('ALTER TABLE orders ADD COLUMN check_in_note TEXT')
+  }
+}
+
+function migrateOrdersUpgrade(db: Database.Database) {
+  const columns = db.prepare('PRAGMA table_info(orders)').all() as { name: string }[]
+  const names = new Set(columns.map((column) => column.name))
+
+  if (!names.has('upgraded_from_order')) {
+    db.exec('ALTER TABLE orders ADD COLUMN upgraded_from_order TEXT')
+  }
+  if (!names.has('upgraded_to_order')) {
+    db.exec('ALTER TABLE orders ADD COLUMN upgraded_to_order TEXT')
+  }
+  if (!names.has('upgrade_credit')) {
+    db.exec('ALTER TABLE orders ADD COLUMN upgrade_credit REAL')
   }
 }
 

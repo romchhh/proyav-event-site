@@ -2,7 +2,8 @@ import { getDb } from './db'
 import type { TicketTierId, TicketWave } from './tickets'
 import { EMPTY_SALES, type SalesCounts } from './ticket-pricing'
 import type { CheckInStatus } from './ticket-checkin'
-import { parseTicketLookupQuery, evaluateTicket, CHECK_IN_LABELS, type TicketVerdict } from './ticket-checkin'
+import { parseTicketLookupQuery, evaluateTicket, CHECK_IN_LABELS, UPGRADED_TICKET_MESSAGE, type TicketVerdict } from './ticket-checkin'
+import { isActivePaidOrder, normalizeEmail } from './tier-upgrade'
 
 export type StoredOrder = {
   orderReference: string
@@ -15,13 +16,16 @@ export type StoredOrder = {
   wave: TicketWave
   amount: number
   promoCode?: string
-  status: 'pending' | 'paid' | 'failed'
+  status: 'pending' | 'paid' | 'failed' | 'upgraded'
   emailSent: boolean
   createdAt: string
   paidAt?: string
   checkInStatus: CheckInStatus
   checkedInAt?: string
   checkInNote?: string
+  upgradedFromOrderReference?: string
+  upgradedToOrderReference?: string
+  upgradeCredit?: number
 }
 
 type OrderRow = {
@@ -42,6 +46,9 @@ type OrderRow = {
   check_in_status: CheckInStatus
   checked_in_at: string | null
   check_in_note: string | null
+  upgraded_from_order: string | null
+  upgraded_to_order: string | null
+  upgrade_credit: number | null
 }
 
 function rowToOrder(row: OrderRow): StoredOrder {
@@ -63,6 +70,9 @@ function rowToOrder(row: OrderRow): StoredOrder {
     checkInStatus: row.check_in_status ?? 'none',
     checkedInAt: row.checked_in_at ?? undefined,
     checkInNote: row.check_in_note ?? undefined,
+    upgradedFromOrderReference: row.upgraded_from_order ?? undefined,
+    upgradedToOrderReference: row.upgraded_to_order ?? undefined,
+    upgradeCredit: row.upgrade_credit ?? undefined,
   }
 }
 
@@ -85,6 +95,9 @@ function orderToParams(order: StoredOrder) {
     checkInStatus: order.checkInStatus ?? 'none',
     checkedInAt: order.checkedInAt ?? null,
     checkInNote: order.checkInNote ?? null,
+    upgradedFromOrder: order.upgradedFromOrderReference ?? null,
+    upgradedToOrder: order.upgradedToOrderReference ?? null,
+    upgradeCredit: order.upgradeCredit ?? null,
   }
 }
 
@@ -120,6 +133,39 @@ export async function incrementSale(tierId: TicketTierId, wave: TicketWave) {
   return getSalesCounts()
 }
 
+export async function decrementSale(tierId: TicketTierId, wave: TicketWave) {
+  const db = getDb()
+  db.prepare(`
+    UPDATE sales
+    SET count = CASE WHEN count > 0 THEN count - 1 ELSE 0 END
+    WHERE tier_id = ? AND wave = ?
+  `).run(tierId, wave)
+
+  return getSalesCounts()
+}
+
+export async function getActivePaidOrderByEmail(email: string) {
+  const db = getDb()
+  const normalized = normalizeEmail(email)
+  const rows = db
+    .prepare(`
+      SELECT * FROM orders
+      WHERE LOWER(email) = ?
+        AND status = 'paid'
+      ORDER BY paid_at DESC, created_at DESC
+    `)
+    .all(normalized) as OrderRow[]
+
+  for (const row of rows) {
+    const order = rowToOrder(row)
+    if (isActivePaidOrder(order)) {
+      return order
+    }
+  }
+
+  return null
+}
+
 export async function saveOrder(order: StoredOrder) {
   const db = getDb()
   db.prepare(`
@@ -127,12 +173,14 @@ export async function saveOrder(order: StoredOrder) {
       order_reference, ticket_code, name, email, phone,
       tier_id, tier_name, wave, amount, promo_code,
       status, email_sent, created_at, paid_at,
-      check_in_status, checked_in_at, check_in_note
+      check_in_status, checked_in_at, check_in_note,
+      upgraded_from_order, upgraded_to_order, upgrade_credit
     ) VALUES (
       @orderReference, @ticketCode, @name, @email, @phone,
       @tierId, @tierName, @wave, @amount, @promoCode,
       @status, @emailSent, @createdAt, @paidAt,
-      @checkInStatus, @checkedInAt, @checkInNote
+      @checkInStatus, @checkedInAt, @checkInNote,
+      @upgradedFromOrder, @upgradedToOrder, @upgradeCredit
     )
     ON CONFLICT(order_reference) DO UPDATE SET
       ticket_code = excluded.ticket_code,
@@ -150,7 +198,10 @@ export async function saveOrder(order: StoredOrder) {
       paid_at = excluded.paid_at,
       check_in_status = excluded.check_in_status,
       checked_in_at = excluded.checked_in_at,
-      check_in_note = excluded.check_in_note
+      check_in_note = excluded.check_in_note,
+      upgraded_from_order = excluded.upgraded_from_order,
+      upgraded_to_order = excluded.upgraded_to_order,
+      upgrade_credit = excluded.upgrade_credit
   `).run(orderToParams(order))
 }
 
@@ -221,7 +272,10 @@ export async function processTicketCheckIn(
     return {
       ok: false,
       code: 'not_paid',
-      message: 'Квиток не оплачений',
+      message:
+        order.status === 'upgraded'
+          ? UPGRADED_TICKET_MESSAGE
+          : 'Квиток не оплачений',
       order,
     }
   }
@@ -357,7 +411,7 @@ export async function lookupAndEvaluateTicket(query: string) {
 
 export async function getCheckInDashboard() {
   const orders = await getAllOrders()
-  const paidOrders = orders.filter((order) => order.status === 'paid')
+  const paidOrders = orders.filter((order) => order.status === 'paid' && !order.upgradedToOrderReference)
 
   return {
     stats: {

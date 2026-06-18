@@ -9,6 +9,7 @@ const STATUS_LABELS: Record<StoredOrder['status'], string> = {
   paid: 'Оплачено',
   pending: 'В обробці',
   failed: 'Відхилено',
+  upgraded: 'Оновлено',
 }
 
 type TicketsView = 'list' | 'checkin'

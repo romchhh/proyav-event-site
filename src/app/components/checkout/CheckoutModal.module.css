@@ -232,6 +232,24 @@
   line-height: 1.55;
 }
 
+.hint a {
+  color: var(--rose-gold-dark);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.upgradeNote {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--rose-gold-dark);
+}
+
+.upgradeBlocked {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #9a4a3d;
+}
+
 @media (max-width: 480px) {
   .overlay {
     padding: 12px;

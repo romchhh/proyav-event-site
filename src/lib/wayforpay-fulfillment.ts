@@ -1,5 +1,11 @@
 import { sendTicketEmail } from '@/lib/ticket-email'
-import { generateTicketCode, getOrder, incrementSale, updateOrder } from '@/lib/store'
+import {
+  decrementSale,
+  generateTicketCode,
+  getOrder,
+  incrementSale,
+  updateOrder,
+} from '@/lib/store'
 import {
   amountsMatch,
   verifyWayForPayCallback,
@@ -76,6 +82,17 @@ export async function fulfillApprovedPayment(body: WayForPayCallbackBody) {
 
   if (!paidOrder) {
     return { ok: false as const, reason: 'update_failed', orderReference }
+  }
+
+  if (paidOrder.upgradedFromOrderReference) {
+    const previousOrder = await getOrder(paidOrder.upgradedFromOrderReference)
+    if (previousOrder && previousOrder.status === 'paid' && !previousOrder.upgradedToOrderReference) {
+      await updateOrder(previousOrder.orderReference, {
+        status: 'upgraded',
+        upgradedToOrderReference: orderReference,
+      })
+      await decrementSale(previousOrder.tierId, previousOrder.wave)
+    }
   }
 
   await incrementSale(order.tierId, order.wave)

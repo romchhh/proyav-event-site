@@ -1,9 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { TicketTierId } from '@/lib/tickets'
+import type { UpgradeQuote } from '@/lib/tier-upgrade'
+import { LINKS } from '@/app/constants'
 import { useCheckout } from './CheckoutContext'
 import styles from './CheckoutModal.module.css'
+
+function formatPrice(amount: number) {
+  return new Intl.NumberFormat('uk-UA').format(amount)
+}
+
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+}
 
 export default function CheckoutModal() {
   const { isOpen, tierId, closeCheckout } = useCheckout()
@@ -19,6 +29,10 @@ export default function CheckoutModal() {
   const [submitError, setSubmitError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isCheckingPromo, setIsCheckingPromo] = useState(false)
+  const [tierName, setTierName] = useState('')
+  const [tierPrice, setTierPrice] = useState(0)
+  const [quote, setQuote] = useState<UpgradeQuote>({ kind: 'new' })
+  const [isCheckingQuote, setIsCheckingQuote] = useState(false)
 
   useEffect(() => {
     if (isOpen && tierId) {
@@ -41,6 +55,51 @@ export default function CheckoutModal() {
       window.removeEventListener('keydown', onKeyDown)
     }
   }, [isOpen, closeCheckout])
+
+  const checkUpgradeQuote = useCallback(async () => {
+    if (!isOpen) return
+
+    setIsCheckingQuote(true)
+    setSubmitError('')
+
+    try {
+      const response = await fetch('/api/checkout/upgrade-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tierId: selectedTierId,
+          email: isValidEmail(email) ? email.trim() : '',
+        }),
+      })
+      const data = (await response.json()) as {
+        quote?: UpgradeQuote
+        tierName?: string
+        tierPrice?: number
+        error?: string
+      }
+
+      if (!response.ok) {
+        setSubmitError(data.error ?? 'Не вдалося перевірити тариф')
+        return
+      }
+
+      setQuote(data.quote ?? { kind: 'new' })
+      setTierName(data.tierName ?? '')
+      setTierPrice(data.tierPrice ?? 0)
+    } catch {
+      setSubmitError('Не вдалося перевірити тариф')
+    } finally {
+      setIsCheckingQuote(false)
+    }
+  }, [email, isOpen, selectedTierId])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const timer = window.setTimeout(() => {
+      void checkUpgradeQuote()
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [checkUpgradeQuote, isOpen, selectedTierId])
 
   const resetPromo = () => {
     setPromoPercent(0)
@@ -87,9 +146,29 @@ export default function CheckoutModal() {
     }
   }
 
+  const pricing = useMemo(() => {
+    const basePrice = tierPrice
+    const discountedPrice = promoPercent ? Math.round(basePrice * (1 - promoPercent / 100)) : basePrice
+    const upgradeCredit = quote.kind === 'upgrade' ? quote.credit : 0
+    const amountDue = Math.max(0, discountedPrice - upgradeCredit)
+
+    return {
+      basePrice,
+      discountedPrice,
+      upgradeCredit,
+      amountDue,
+    }
+  }, [promoPercent, quote, tierPrice])
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     setSubmitError('')
+
+    if (quote.kind === 'blocked') {
+      setSubmitError(quote.message)
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -171,10 +250,19 @@ export default function CheckoutModal() {
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
+              onBlur={() => void checkUpgradeQuote()}
               placeholder="На цю адресу надійде запрошення"
               required
               autoComplete="email"
             />
+            {quote.kind === 'upgrade' && (
+              <p className={styles.upgradeNote}>
+                Знайдено квиток «{quote.fromTierName}». До оплати буде зараховано {formatPrice(quote.credit)} ₴.
+              </p>
+            )}
+            {quote.kind === 'blocked' && (
+              <p className={styles.upgradeBlocked}>{quote.message}</p>
+            )}
           </div>
 
           <div className={styles.field}>
@@ -231,14 +319,45 @@ export default function CheckoutModal() {
             </div>
           )}
 
+          {tierPrice > 0 && (
+            <div className={styles.summary}>
+              <div className={styles.summaryRow}>
+                <span>{tierName || 'Тариф'}</span>
+                <span>{formatPrice(pricing.basePrice)} ₴</span>
+              </div>
+              {promoPercent > 0 && (
+                <div className={styles.summaryRow}>
+                  <span>Промокод −{promoPercent}%</span>
+                  <span>{formatPrice(pricing.discountedPrice)} ₴</span>
+                </div>
+              )}
+              {pricing.upgradeCredit > 0 && (
+                <div className={styles.summaryRow}>
+                  <span>Зараховано за попередній квиток</span>
+                  <span>−{formatPrice(pricing.upgradeCredit)} ₴</span>
+                </div>
+              )}
+              <div className={`${styles.summaryRow} ${styles.summaryTotal}`}>
+                <span>До оплати</span>
+                <span>{isCheckingQuote ? '...' : `${formatPrice(pricing.amountDue)} ₴`}</span>
+              </div>
+            </div>
+          )}
+
           {submitError && <p className={styles.error}>{submitError}</p>}
 
-          <button type="submit" className={styles.submit} disabled={isSubmitting}>
+          <button
+            type="submit"
+            className={styles.submit}
+            disabled={isSubmitting || isCheckingQuote || quote.kind === 'blocked'}
+          >
             {isSubmitting ? 'Створюємо оплату...' : 'Перейти до оплати'}
           </button>
 
           <p className={styles.hint}>
-            Оплата проходить через WayForPay. Після успішної транзакції ви отримаєте запрошення на email.
+            Оплата проходить через WayForPay. Після успішної транзакції ви отримаєте запрошення на email
+            та зможете долучитись до{' '}
+            <a href={LINKS.telegram} target="_blank" rel="noopener noreferrer">Telegram-чату події</a>.
           </p>
         </form>
       </div>

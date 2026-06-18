@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { applyDiscount, validatePromoCode } from '@/lib/promo'
 import { getPricingConfigFromContent, getTierPrice, isTierAvailable } from '@/lib/ticket-pricing'
-import { getSalesCounts, saveOrder } from '@/lib/store'
+import { getActivePaidOrderByEmail, getSalesCounts, saveOrder } from '@/lib/store'
 import { getSiteContent } from '@/lib/site-content'
 import type { TicketTierId } from '@/lib/tickets'
+import { buildUpgradeQuote, normalizeEmail } from '@/lib/tier-upgrade'
 import { createOrderReference, createWayForPayInvoice } from '@/lib/wayforpay'
 import { getSiteUrl } from '@/lib/site-url'
 
@@ -62,8 +63,17 @@ export async function POST(request: Request) {
     }
 
     const pricing = getTierPrice(body.tierId, sales, pricingConfig)
+    const existingOrder = await getActivePaidOrderByEmail(normalizeEmail(email))
+    const upgradeQuote = buildUpgradeQuote(existingOrder, body.tierId, tier.name, pricing.price)
+
+    if (upgradeQuote.kind === 'blocked') {
+      return NextResponse.json({ error: upgradeQuote.message }, { status: 409 })
+    }
+
     let amount = pricing.price
     let discountPercent = 0
+    let upgradeCredit = 0
+    let upgradedFromOrderReference: string | undefined
 
     if (promoCode) {
       const promo = await validatePromoCode(promoCode)
@@ -72,6 +82,19 @@ export async function POST(request: Request) {
       }
       discountPercent = promo.percent
       amount = applyDiscount(pricing.price, promo.percent)
+    }
+
+    if (upgradeQuote.kind === 'upgrade') {
+      upgradeCredit = upgradeQuote.credit
+      upgradedFromOrderReference = upgradeQuote.fromOrderReference
+      amount = Math.max(0, amount - upgradeCredit)
+    }
+
+    if (amount < 1) {
+      return NextResponse.json(
+        { error: 'Сума до оплати занадто мала. Напишіть нам на proYav.event@gmail.com' },
+        { status: 400 },
+      )
     }
 
     const siteUrl = getSiteUrl()
@@ -92,6 +115,8 @@ export async function POST(request: Request) {
       emailSent: false,
       createdAt: new Date().toISOString(),
       checkInStatus: 'none',
+      upgradedFromOrderReference,
+      upgradeCredit: upgradeCredit || undefined,
     })
 
     const invoice = await createWayForPayInvoice({
@@ -115,6 +140,7 @@ export async function POST(request: Request) {
       amount,
       originalAmount: pricing.price,
       discountPercent,
+      upgradeCredit: upgradeCredit || undefined,
       tierName: tier.name,
       orderReference,
     })
