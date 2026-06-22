@@ -57,14 +57,21 @@
   color: var(--rose-gold-light);
 }
 
-.privacy {
+.legal {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 24px;
+}
+
+.legalLink {
   font-size: 13px;
   color: rgba(255,255,255,0.35);
   text-decoration: none;
   transition: color 0.2s;
 }
 
-.privacy:hover {
+.legalLink:hover {
   color: rgba(255,255,255,0.6);
 }
 

@@ -355,8 +355,9 @@ export default function CheckoutModal() {
           </button>
 
           <p className={styles.hint}>
-            Оплата проходить через WayForPay. Після успішної транзакції ви отримаєте запрошення на email
-            та зможете долучитись до{' '}
+            Оплата проходить через WayForPay. Оформлюючи замовлення, ви погоджуєтесь з{' '}
+            <a href={LINKS.terms} target="_blank" rel="noopener noreferrer">умовами продажу та повернення</a>.
+            Після оплати ви отримаєте запрошення на email та зможете долучитись до{' '}
             <a href={LINKS.telegram} target="_blank" rel="noopener noreferrer">Telegram-чату події</a>.
           </p>
         </form>

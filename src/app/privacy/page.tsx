@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { getSiteContent } from '@/lib/site-content'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
-import { EVENT, LINKS } from '../constants'
+import { EVENT, LINKS, SELLER } from '../constants'
 import styles from './page.module.css'
 
 export const metadata: Metadata = {
@@ -45,8 +45,8 @@ export default async function PrivacyPage() {
             <section>
               <h2>2. Хто є володарем персональних даних</h2>
               <p>
-                Володарем (контролером) персональних даних є організатори {EVENT.name} — Аліса Нєвєрова
-                та Ольга Тедеєва.
+                Володарем (контролером) персональних даних є {SELLER.name} (організатори {EVENT.name} — Аліса
+                Нєвєрова та Ольга Тедеєва).
               </p>
               <p>
                 З питань щодо персональних даних звертайтесь:
@@ -63,6 +63,10 @@ export default async function PrivacyPage() {
                   </a>
                 </li>
               </ul>
+              <p>
+                Повна контактна інформація та реквізити продавця — у{' '}
+                <Link href={LINKS.terms}>Умовах продажу та повернення</Link>.
+              </p>
             </section>
 
             <section>

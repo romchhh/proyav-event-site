@@ -15,10 +15,23 @@ export const LINKS = {
   maps: 'https://maps.app.goo.gl/SqnLvqf8ghRFTggq7',
   email: 'proYav.event@gmail.com',
   privacy: '/privacy',
+  terms: '/terms',
   telebots: 'https://telebots.site/',
   becomeSpeaker:
     'https://docs.google.com/forms/d/e/1FAIpQLSdQnpsltXoUW723MwkQkJsFs1kNy8Tipqt717fvjPMmDecgJg/viewform?usp=header',
   becomePartner: 'mailto:proYav.event@gmail.com?subject=Стати партнером PROяв івент',
+} as const
+
+export const SELLER = {
+  name: 'ФОП Тедеєва Ольга Олександрівна',
+  taxId: '3214109082',
+  legalAddress: '46000, Україна, Тернопільська область, м. Тернопіль',
+  actualAddress: '46000, Україна, Тернопільська область, м. Тернопіль',
+  email: LINKS.email,
+  iban: 'UA063220010000026001340111147',
+  bankName: 'Акціонерне товариство «УНІВЕРСАЛ БАНК»',
+  bankMfo: '322001',
+  bankEdrpou: '21133352',
 } as const
 
 export const ASSETS = {

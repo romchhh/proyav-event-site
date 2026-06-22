@@ -67,6 +67,7 @@ export type SiteContent = {
     maps: string
     email: string
     privacy: string
+    terms: string
     telebots: string
     becomeSpeaker: string
     becomePartner: string
