@@ -85,10 +85,14 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     ],
   },
   gallery: {
+    heading: 'Галерея',
     subheading: 'Атмосфера PROяв івент, яку ми візуалізували за допомогою ШІ.',
     images: [...GALLERY_IMAGES],
   },
-  schedule: SCHEDULE.map((item) => ({ ...item })),
+  schedule: {
+    heading: 'Програма події',
+    items: SCHEDULE.map((item) => ({ ...item })),
+  },
   speakers: {
     heading: 'Спікери',
     subheading: 'Хто виступатиме на PROяв івент',
@@ -192,7 +196,10 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     description: 'Зручний підʼїзд, паркінг, все для комфортного дня.',
     mapsEmbedUrl: 'https://maps.google.com/maps?q=Podolyany+Hall,+Ternopil,+Ukraine&output=embed',
   },
-  faq: FAQ_ITEMS.map((item) => ({ ...item })),
+  faq: {
+    heading: 'Питання та відповіді',
+    items: FAQ_ITEMS.map((item) => ({ ...item })),
+  },
   social: {
     heading: 'Слідкуй за оновленнями',
     subheading: 'Анонси спікерів, спецпропозиції та все найважливіше про PROяв івент — у наших соцмережах.',

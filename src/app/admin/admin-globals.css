@@ -196,6 +196,20 @@
   color: #8a7d72;
 }
 
+.adminCheckLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #5c4a40;
+}
+
+.adminCheckLabel input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
 .adminTickets {
   display: flex;
   flex-direction: column;

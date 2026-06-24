@@ -112,7 +112,7 @@ export default function GallerySection({ content }: { content: SiteContent }) {
     <section id="galereya" className={styles.section}>
       <div className={`sectionInner ${styles.inner}`}>
         <div className={styles.header}>
-          <h2 className="sectionHeading">Галерея</h2>
+          <h2 className="sectionHeading">{content.gallery.heading}</h2>
           <div className="sectionSubheading">
             <MarkdownContent>{content.gallery.subheading}</MarkdownContent>
           </div>

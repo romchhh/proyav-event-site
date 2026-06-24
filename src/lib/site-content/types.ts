@@ -113,10 +113,14 @@ export type SiteContent = {
     quote: string[]
   }
   gallery: {
+    heading: string
     subheading: string
     images: string[]
   }
-  schedule: ScheduleItem[]
+  schedule: {
+    heading: string
+    items: ScheduleItem[]
+  }
   speakers: {
     heading: string
     subheading: string
@@ -145,7 +149,10 @@ export type SiteContent = {
     description: string
     mapsEmbedUrl: string
   }
-  faq: FaqItem[]
+  faq: {
+    heading: string
+    items: FaqItem[]
+  }
   social: {
     heading: string
     subheading: string

@@ -5,8 +5,12 @@ export const CONTENT_BLOCKS = [
   { id: 'speakers', label: 'Спікери' },
   { id: 'schedule', label: 'Програма' },
   { id: 'gallery', label: 'Галерея' },
-  { id: 'faq', label: 'FAQ' },
+  { id: 'partners', label: 'Партнери' },
   { id: 'tickets', label: 'Квитки та ціни' },
+  { id: 'venue', label: 'Локація' },
+  { id: 'faq', label: 'FAQ' },
+  { id: 'social', label: 'Соцмережі' },
+  { id: 'footer', label: 'Футер та меню' },
   { id: 'links', label: 'Посилання та SEO' },
 ] as const
 

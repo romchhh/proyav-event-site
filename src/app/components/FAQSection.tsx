@@ -13,11 +13,11 @@ export default function FAQSection({ content }: { content: SiteContent }) {
     <section id="faq" className={styles.section}>
       <div className={`sectionInner ${styles.inner}`}>
         <div className={styles.header}>
-          <h2 className="sectionHeading">Питання та відповіді</h2>
+          <h2 className="sectionHeading">{faq.heading}</h2>
         </div>
 
         <div className={styles.list}>
-          {faq.map((item, index) => {
+          {faq.items.map((item, index) => {
             const isOpen = openIndex === index
 
             return (

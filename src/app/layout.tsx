@@ -2,39 +2,44 @@ import type { Metadata } from 'next'
 import CheckoutShell from './components/checkout/CheckoutShell'
 import './globals.css'
 import './proyav.css'
-import { ASSETS, EVENT } from './constants'
+import { ASSETS } from './constants'
+import { getSiteContent } from '@/lib/site-content'
 import { getSiteUrl } from '@/lib/site-url'
 
 const siteUrl = getSiteUrl()
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: 'PROяв івент — Масштабна подія у Тернополі',
-  description: 'Масштабна подія нового формату у Тернополі на тему проявленості. 26 вересня 2026, Podolyany Hall.',
-  icons: {
-    icon: ASSETS.logo,
-    apple: ASSETS.logo,
-  },
-  openGraph: {
-    type: 'website',
-    locale: 'uk_UA',
-    url: siteUrl,
-    siteName: EVENT.name,
-    title: 'PROяв івент — Масштабна подія у Тернополі',
-    description: 'Масштабна подія нового формату у Тернополі на тему проявленості. 26 вересня 2026, Podolyany Hall.',
-    images: [
-      {
-        url: ASSETS.logo,
-        alt: 'PROяв івент',
-      },
-    ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'PROяв івент — Масштабна подія у Тернополі',
-    description: 'Масштабна подія нового формату у Тернополі на тему проявленості. 26 вересня 2026, Podolyany Hall.',
-    images: [ASSETS.logo],
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const content = await getSiteContent()
+
+  return {
+    metadataBase: new URL(siteUrl),
+    title: content.metadata.title,
+    description: content.metadata.description,
+    icons: {
+      icon: content.assets.logo || ASSETS.logo,
+      apple: content.assets.logo || ASSETS.logo,
+    },
+    openGraph: {
+      type: 'website',
+      locale: 'uk_UA',
+      url: siteUrl,
+      siteName: content.event.name,
+      title: content.metadata.title,
+      description: content.metadata.description,
+      images: [
+        {
+          url: content.assets.logo || ASSETS.logo,
+          alt: content.event.name,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: content.metadata.title,
+      description: content.metadata.description,
+      images: [content.assets.logo || ASSETS.logo],
+    },
+  }
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

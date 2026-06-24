@@ -14,6 +14,8 @@ import FAQSection from './components/FAQSection'
 import SocialSection from './components/SocialSection'
 import Footer from './components/Footer'
 
+export const dynamic = 'force-dynamic'
+
 export async function generateMetadata() {
   const content = await getSiteContent()
   return {

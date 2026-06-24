@@ -83,12 +83,12 @@ export default function TicketsSection({ content }: { content: SiteContent }) {
                   ⚠️ <MarkdownContent inline>{tier.limitNote}</MarkdownContent>
                 </div>
                 <ul className={styles.features}>
-                  {tier.features.map((feature) => (
+                  {tier.features.map((feature, index) => (
                     <li
-                      key={feature.text}
+                      key={`${tier.id}-feature-${index}`}
                       className={feature.included ? styles.featureIncluded : styles.featureOptional}
                     >
-                      {feature.text}
+                      <MarkdownContent inline>{feature.text}</MarkdownContent>
                     </li>
                   ))}
                 </ul>
