@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import CheckoutShell from './components/checkout/CheckoutShell'
+import MetaPixel from '@/components/MetaPixel'
 import './globals.css'
 import './proyav.css'
 import { ASSETS } from './constants'
@@ -54,6 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
+        <MetaPixel />
         <div className="proyav-page">
           <CheckoutShell>{children}</CheckoutShell>
         </div>
