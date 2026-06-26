@@ -17,19 +17,31 @@ type OrderStatus = {
 
 function SuccessContent() {
   const searchParams = useSearchParams()
-  const orderReference = searchParams.get('orderReference')
+  const orderReference = searchParams.get('orderReference')?.trim() ?? ''
   const [orderStatus, setOrderStatus] = useState<OrderStatus | null>(null)
+  const [hasChecked, setHasChecked] = useState(false)
   const [shareError, setShareError] = useState<string | null>(null)
   const [isSharing, setIsSharing] = useState(false)
 
   useEffect(() => {
-    if (!orderReference) return
+    if (!orderReference) {
+      setOrderStatus({ found: false, status: 'unknown' })
+      setHasChecked(true)
+      return
+    }
 
     let attempts = 0
+    let cancelled = false
+
     const poll = async () => {
       const response = await fetch(`/api/orders/status?orderReference=${encodeURIComponent(orderReference)}`)
       const data = (await response.json()) as OrderStatus
+      if (cancelled) return
+
       setOrderStatus(data)
+      setHasChecked(true)
+
+      if (!data.found) return
 
       if (data.status === 'paid' && data.emailSent === false) {
         await fetch('/api/orders/ensure-ticket', {
@@ -39,20 +51,28 @@ function SuccessContent() {
         })
         const refreshed = await fetch(`/api/orders/status?orderReference=${encodeURIComponent(orderReference)}`)
         const refreshedData = (await refreshed.json()) as OrderStatus
-        setOrderStatus(refreshedData)
+        if (!cancelled) setOrderStatus(refreshedData)
       }
 
-      if (data.status !== 'paid' && attempts < 8) {
+      if (data.found && data.status !== 'paid' && data.status !== 'failed' && attempts < 8) {
         attempts += 1
         window.setTimeout(poll, 2500)
       }
     }
 
     poll()
+
+    return () => {
+      cancelled = true
+    }
   }, [orderReference])
 
-  const isPaid = orderStatus?.status === 'paid'
-  const isPending = orderStatus?.status === 'pending' || orderStatus?.status === 'unknown' || !orderStatus
+  const isNotFound = hasChecked && (!orderReference || orderStatus?.found === false)
+  const isPaid = orderStatus?.found === true && orderStatus.status === 'paid'
+  const isFailed = orderStatus?.found === true && orderStatus.status === 'failed'
+  const isPending =
+    orderStatus?.found === true &&
+    (orderStatus.status === 'pending' || orderStatus.status === 'unknown' || !orderStatus.status)
 
   const ticketPreviewUrl = useMemo(() => {
     if (!orderReference || !isPaid) return null
@@ -105,17 +125,68 @@ function SuccessContent() {
     }
   }, [ticketDownloadUrl, orderReference])
 
+  if (!hasChecked) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.card}>
+          <p className={styles.eyebrow}>PROяв івент</p>
+          <h1 className={styles.title}>Перевіряємо оплату…</h1>
+          <p className={styles.lead}>Зачекай кілька секунд.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (isNotFound) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.card}>
+          <p className={styles.eyebrow}>PROяв івент</p>
+          <h1 className={styles.title}>Оплату не знайдено</h1>
+          <p className={styles.lead}>
+            Ми не знайшли замовлення за цим посиланням. Перевір номер замовлення в листі від WayForPay
+            або звернись до нас — допоможемо знайти квиток.
+          </p>
+
+          {orderReference && (
+            <div className={styles.details}>
+              <p><span>Замовлення:</span> {orderReference}</p>
+            </div>
+          )}
+
+          <p className={styles.note}>
+            Напиши нам на{' '}
+            <a href={`mailto:${LINKS.email}`}>{LINKS.email}</a>
+            {' '}або в{' '}
+            <a href={LINKS.telegram} target="_blank" rel="noopener noreferrer">Telegram-чат</a>.
+          </p>
+
+          <div className={styles.actions}>
+            <Link href="/#kvitky" className={styles.primary}>
+              Купити квиток
+            </Link>
+            <Link href="/" className={styles.secondary}>
+              На головну
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={styles.page}>
       <div className={styles.card}>
         <p className={styles.eyebrow}>PROяв івент</p>
         <h1 className={styles.title}>
-          {isPaid ? 'Оплату підтверджено!' : 'Дякуємо! Оплата в обробці'}
+          {isPaid ? 'Оплату підтверджено!' : isFailed ? 'Оплату не підтверджено' : 'Дякуємо! Оплата в обробці'}
         </h1>
         <p className={styles.lead}>
           {isPaid
             ? 'Квиток надіслано на email як файл-запрошення з QR-кодом. Можеш також зберегти або поділитися ним тут.'
-            : 'Зачекай кілька секунд — ми підтверджуємо платіж. Лист із файлом квитка прийде автоматично.'}
+            : isFailed
+              ? 'Платіж не пройшов або був відхилений. Спробуй оформити квиток ще раз або напиши нам.'
+              : 'Зачекай кілька секунд — ми підтверджуємо платіж. Лист із файлом квитка прийде автоматично.'}
         </p>
 
         {isPaid && ticketPreviewUrl && (
@@ -182,10 +253,17 @@ function SuccessContent() {
             </Link>
           ) : (
             <>
-              <a href={LINKS.telegram} target="_blank" rel="noopener noreferrer" className={styles.primary}>
-                Перейти в чат
-              </a>
-              <Link href="/#kvitky" className={styles.secondary}>
+              {!isFailed && (
+                <a href={LINKS.telegram} target="_blank" rel="noopener noreferrer" className={styles.primary}>
+                  Перейти в чат
+                </a>
+              )}
+              {isFailed && (
+                <Link href="/#kvitky" className={styles.primary}>
+                  Спробувати ще раз
+                </Link>
+              )}
+              <Link href="/" className={styles.secondary}>
                 На головну
               </Link>
             </>
