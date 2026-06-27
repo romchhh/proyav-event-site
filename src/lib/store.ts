@@ -4,6 +4,9 @@ import { EMPTY_SALES, type SalesCounts } from './ticket-pricing'
 import type { CheckInStatus } from './ticket-checkin'
 import { parseTicketLookupQuery, evaluateTicket, CHECK_IN_LABELS, UPGRADED_TICKET_MESSAGE, type TicketVerdict } from './ticket-checkin'
 import { isActivePaidOrder, normalizeEmail } from './tier-upgrade'
+import type { OrderTicket } from './order-tickets'
+
+export type { OrderTicket } from './order-tickets'
 
 export type StoredOrder = {
   orderReference: string
@@ -15,6 +18,7 @@ export type StoredOrder = {
   tierName: string
   wave: TicketWave
   amount: number
+  quantity: number
   promoCode?: string
   status: 'pending' | 'paid' | 'failed' | 'upgraded'
   emailSent: boolean
@@ -49,6 +53,17 @@ type OrderRow = {
   upgraded_from_order: string | null
   upgraded_to_order: string | null
   upgrade_credit: number | null
+  quantity: number
+}
+
+type OrderTicketRow = {
+  id: number
+  order_reference: string
+  ticket_code: string
+  sequence: number
+  check_in_status: CheckInStatus
+  checked_in_at: string | null
+  check_in_note: string | null
 }
 
 function rowToOrder(row: OrderRow): StoredOrder {
@@ -62,6 +77,7 @@ function rowToOrder(row: OrderRow): StoredOrder {
     tierName: row.tier_name,
     wave: row.wave,
     amount: row.amount,
+    quantity: row.quantity ?? 1,
     promoCode: row.promo_code ?? undefined,
     status: row.status,
     emailSent: row.email_sent === 1,
@@ -87,6 +103,7 @@ function orderToParams(order: StoredOrder) {
     tierName: order.tierName,
     wave: order.wave,
     amount: order.amount,
+    quantity: order.quantity ?? 1,
     promoCode: order.promoCode ?? null,
     status: order.status,
     emailSent: order.emailSent ? 1 : 0,
@@ -99,6 +116,91 @@ function orderToParams(order: StoredOrder) {
     upgradedToOrder: order.upgradedToOrderReference ?? null,
     upgradeCredit: order.upgradeCredit ?? null,
   }
+}
+
+function rowToOrderTicket(row: OrderTicketRow): OrderTicket {
+  return {
+    id: row.id,
+    orderReference: row.order_reference,
+    ticketCode: row.ticket_code,
+    sequence: row.sequence,
+    checkInStatus: row.check_in_status ?? 'none',
+    checkedInAt: row.checked_in_at ?? undefined,
+    checkInNote: row.check_in_note ?? undefined,
+  }
+}
+
+function ticketCodeExists(ticketCode: string) {
+  const db = getDb()
+  const inTickets = db
+    .prepare('SELECT 1 FROM order_tickets WHERE UPPER(ticket_code) = UPPER(?)')
+    .get(ticketCode)
+  if (inTickets) return true
+
+  const inOrders = db
+    .prepare('SELECT 1 FROM orders WHERE UPPER(ticket_code) = UPPER(?)')
+    .get(ticketCode)
+  return Boolean(inOrders)
+}
+
+export async function getOrderTickets(orderReference: string): Promise<OrderTicket[]> {
+  const db = getDb()
+  const rows = db
+    .prepare('SELECT * FROM order_tickets WHERE order_reference = ? ORDER BY sequence ASC')
+    .all(orderReference) as OrderTicketRow[]
+
+  return rows.map(rowToOrderTicket)
+}
+
+export async function getOrderTicketByCode(ticketCode: string): Promise<OrderTicket | null> {
+  const db = getDb()
+  const row = db
+    .prepare('SELECT * FROM order_tickets WHERE UPPER(ticket_code) = UPPER(?)')
+    .get(ticketCode) as OrderTicketRow | undefined
+
+  return row ? rowToOrderTicket(row) : null
+}
+
+export async function ensureOrderTickets(orderReference: string, quantity: number): Promise<OrderTicket[]> {
+  const existing = await getOrderTickets(orderReference)
+  if (existing.length >= quantity) {
+    return existing.slice(0, quantity)
+  }
+
+  const db = getDb()
+  const insert = db.prepare(`
+    INSERT INTO order_tickets (
+      order_reference, ticket_code, sequence, check_in_status
+    ) VALUES (?, ?, ?, 'none')
+  `)
+
+  const created = [...existing]
+  for (let index = existing.length; index < quantity; index += 1) {
+    let ticketCode = generateTicketCode()
+    while (ticketCodeExists(ticketCode)) {
+      ticketCode = generateTicketCode()
+    }
+
+    const result = insert.run(orderReference, ticketCode, index + 1)
+    created.push({
+      id: Number(result.lastInsertRowid),
+      orderReference,
+      ticketCode,
+      sequence: index + 1,
+      checkInStatus: 'none',
+    })
+  }
+
+  if (created[0]) {
+    await updateOrder(orderReference, { ticketCode: created[0].ticketCode })
+  }
+
+  return created
+}
+
+export type TicketLookupContext = {
+  order: StoredOrder
+  ticket?: OrderTicket
 }
 
 export async function getSalesCounts(): Promise<SalesCounts> {
@@ -122,24 +224,24 @@ export async function getSalesCounts(): Promise<SalesCounts> {
   return sales
 }
 
-export async function incrementSale(tierId: TicketTierId, wave: TicketWave) {
+export async function incrementSale(tierId: TicketTierId, wave: TicketWave, count = 1) {
   const db = getDb()
   db.prepare(`
     INSERT INTO sales (tier_id, wave, count)
-    VALUES (?, ?, 1)
-    ON CONFLICT(tier_id, wave) DO UPDATE SET count = count + 1
-  `).run(tierId, wave)
+    VALUES (?, ?, ?)
+    ON CONFLICT(tier_id, wave) DO UPDATE SET count = count + excluded.count
+  `).run(tierId, wave, count)
 
   return getSalesCounts()
 }
 
-export async function decrementSale(tierId: TicketTierId, wave: TicketWave) {
+export async function decrementSale(tierId: TicketTierId, wave: TicketWave, count = 1) {
   const db = getDb()
   db.prepare(`
     UPDATE sales
-    SET count = CASE WHEN count > 0 THEN count - 1 ELSE 0 END
+    SET count = CASE WHEN count > ? THEN count - ? ELSE 0 END
     WHERE tier_id = ? AND wave = ?
-  `).run(tierId, wave)
+  `).run(count, count, tierId, wave)
 
   return getSalesCounts()
 }
@@ -174,13 +276,13 @@ export async function saveOrder(order: StoredOrder) {
       tier_id, tier_name, wave, amount, promo_code,
       status, email_sent, created_at, paid_at,
       check_in_status, checked_in_at, check_in_note,
-      upgraded_from_order, upgraded_to_order, upgrade_credit
+      upgraded_from_order, upgraded_to_order, upgrade_credit, quantity
     ) VALUES (
       @orderReference, @ticketCode, @name, @email, @phone,
       @tierId, @tierName, @wave, @amount, @promoCode,
       @status, @emailSent, @createdAt, @paidAt,
       @checkInStatus, @checkedInAt, @checkInNote,
-      @upgradedFromOrder, @upgradedToOrder, @upgradeCredit
+      @upgradedFromOrder, @upgradedToOrder, @upgradeCredit, @quantity
     )
     ON CONFLICT(order_reference) DO UPDATE SET
       ticket_code = excluded.ticket_code,
@@ -201,7 +303,8 @@ export async function saveOrder(order: StoredOrder) {
       check_in_note = excluded.check_in_note,
       upgraded_from_order = excluded.upgraded_from_order,
       upgraded_to_order = excluded.upgraded_to_order,
-      upgrade_credit = excluded.upgrade_credit
+      upgrade_credit = excluded.upgrade_credit,
+      quantity = excluded.quantity
   `).run(orderToParams(order))
 }
 
@@ -233,6 +336,13 @@ export async function getAllOrders(): Promise<StoredOrder[]> {
 }
 
 export async function getOrderByTicketCode(ticketCode: string) {
+  const ticket = await getOrderTicketByCode(ticketCode)
+  if (ticket) {
+    const order = await getOrder(ticket.orderReference)
+    if (!order) return null
+    return { ...order, ticketCode: ticket.ticketCode }
+  }
+
   const db = getDb()
   const row = db
     .prepare('SELECT * FROM orders WHERE UPPER(ticket_code) = UPPER(?)')
@@ -241,15 +351,28 @@ export async function getOrderByTicketCode(ticketCode: string) {
   return row ? rowToOrder(row) : null
 }
 
-export async function lookupTicketOrder(query: string) {
+export async function lookupTicketContext(query: string): Promise<TicketLookupContext | null> {
   const parsed = parseTicketLookupQuery(query)
   if (!parsed) return null
 
   if (parsed.type === 'ticketCode') {
-    return getOrderByTicketCode(parsed.value)
+    const ticket = await getOrderTicketByCode(parsed.value)
+    if (ticket) {
+      const order = await getOrder(ticket.orderReference)
+      return order ? { order: { ...order, ticketCode: ticket.ticketCode }, ticket } : null
+    }
+
+    const order = await getOrderByTicketCode(parsed.value)
+    return order ? { order } : null
   }
 
-  return getOrder(parsed.value)
+  const order = await getOrder(parsed.value)
+  return order ? { order } : null
+}
+
+export async function lookupTicketOrder(query: string) {
+  const context = await lookupTicketContext(query)
+  return context?.order ?? null
 }
 
 export type CheckInAction = 'admit' | 'reject'
@@ -263,10 +386,13 @@ export async function processTicketCheckIn(
   action: CheckInAction,
   note?: string,
 ): Promise<CheckInResult> {
-  const order = await lookupTicketOrder(query)
-  if (!order) {
+  const context = await lookupTicketContext(query)
+  if (!context) {
     return { ok: false, code: 'not_found', message: 'Квиток не знайдено' }
   }
+
+  const { order, ticket } = context
+  const checkInStatus = ticket?.checkInStatus ?? order.checkInStatus
 
   if (order.status !== 'paid') {
     return {
@@ -280,7 +406,7 @@ export async function processTicketCheckIn(
     }
   }
 
-  if (action === 'admit' && order.checkInStatus === 'admitted') {
+  if (action === 'admit' && checkInStatus === 'admitted') {
     return {
       ok: false,
       code: 'already_used',
@@ -290,10 +416,27 @@ export async function processTicketCheckIn(
   }
 
   const nextStatus: CheckInStatus = action === 'admit' ? 'admitted' : 'rejected'
+  const checkedInAt = new Date().toISOString()
+  const checkInNote = note?.trim() || undefined
+
+  if (ticket) {
+    const db = getDb()
+    db.prepare(`
+      UPDATE order_tickets
+      SET check_in_status = ?, checked_in_at = ?, check_in_note = ?
+      WHERE id = ?
+    `).run(nextStatus, checkedInAt, checkInNote ?? null, ticket.id)
+  }
+
   const updated = await updateOrder(order.orderReference, {
-    checkInStatus: nextStatus,
-    checkedInAt: new Date().toISOString(),
-    checkInNote: note?.trim() || undefined,
+    ...(ticket ? { ticketCode: ticket.ticketCode } : {}),
+    ...(order.quantity <= 1 || !ticket
+      ? {
+          checkInStatus: nextStatus,
+          checkedInAt,
+          checkInNote,
+        }
+      : {}),
   })
 
   if (!updated) {
@@ -377,12 +520,13 @@ export async function getTicketScanStats(orderReference: string) {
 }
 
 export async function lookupAndEvaluateTicket(query: string) {
-  const order = await lookupTicketOrder(query)
-  const evaluation = evaluateTicket(order)
+  const context = await lookupTicketContext(query)
+  const order = context?.order ?? null
+  const evaluation = evaluateTicket(order, context?.ticket)
 
   await logTicketScan({
     orderReference: order?.orderReference,
-    ticketCode: order?.ticketCode,
+    ticketCode: context?.ticket?.ticketCode ?? order?.ticketCode,
     guestName: order?.name,
     tierName: order?.tierName,
     result: evaluation.verdict,
@@ -390,10 +534,12 @@ export async function lookupAndEvaluateTicket(query: string) {
   })
 
   const scanStats = order ? await getTicketScanStats(order.orderReference) : { totalScans: 0 }
+  const checkInStatus = context?.ticket?.checkInStatus ?? order?.checkInStatus
 
   return {
     found: Boolean(order),
     order: order ?? undefined,
+    ticketCode: context?.ticket?.ticketCode ?? order?.ticketCode,
     ...evaluation,
     canAdmit: evaluation.verdict === 'valid',
     scanCount: scanStats.totalScans,
@@ -405,30 +551,69 @@ export async function lookupAndEvaluateTicket(query: string) {
           ? 'В обробці'
           : 'Не оплачено'
       : undefined,
-    checkInLabel: order ? CHECK_IN_LABELS[order.checkInStatus] : undefined,
+    checkInLabel: checkInStatus ? CHECK_IN_LABELS[checkInStatus] : undefined,
   }
 }
 
 export async function getCheckInDashboard() {
   const orders = await getAllOrders()
-  const paidOrders = orders.filter((order) => order.status === 'paid' && !order.upgradedToOrderReference)
+  const paidOrders = orders.filter(
+    (order) => order.status === 'paid' && !order.upgradedToOrderReference,
+  )
+
+  const ticketEntries: Array<{ order: StoredOrder; ticket: OrderTicket }> = []
+
+  for (const order of paidOrders) {
+    const tickets = await getOrderTickets(order.orderReference)
+    if (tickets.length > 0) {
+      for (const ticket of tickets) {
+        ticketEntries.push({ order, ticket })
+      }
+      continue
+    }
+
+    ticketEntries.push({
+      order,
+      ticket: {
+        id: 0,
+        orderReference: order.orderReference,
+        ticketCode: order.ticketCode ?? order.orderReference,
+        sequence: 1,
+        checkInStatus: order.checkInStatus,
+        checkedInAt: order.checkedInAt,
+        checkInNote: order.checkInNote,
+      },
+    })
+  }
 
   return {
     stats: {
-      purchased: paidOrders.length,
-      waiting: paidOrders.filter((order) => order.checkInStatus === 'none').length,
-      admitted: paidOrders.filter((order) => order.checkInStatus === 'admitted').length,
-      rejected: paidOrders.filter((order) => order.checkInStatus === 'rejected').length,
+      purchased: ticketEntries.length,
+      waiting: ticketEntries.filter((entry) => entry.ticket.checkInStatus === 'none').length,
+      admitted: ticketEntries.filter((entry) => entry.ticket.checkInStatus === 'admitted').length,
+      rejected: ticketEntries.filter((entry) => entry.ticket.checkInStatus === 'rejected').length,
       pendingPayment: orders.filter((order) => order.status === 'pending').length,
       failedPayment: orders.filter((order) => order.status === 'failed').length,
     },
-    waiting: paidOrders
-      .filter((order) => order.checkInStatus === 'none')
+    waiting: ticketEntries
+      .filter((entry) => entry.ticket.checkInStatus === 'none')
+      .map((entry) => ({ ...entry.order, ticketCode: entry.ticket.ticketCode }))
       .sort((a, b) => new Date(b.paidAt ?? b.createdAt).getTime() - new Date(a.paidAt ?? a.createdAt).getTime()),
-    admitted: paidOrders
-      .filter((order) => order.checkInStatus === 'admitted')
-      .sort((a, b) => new Date(b.checkedInAt ?? b.paidAt ?? b.createdAt).getTime() - new Date(a.checkedInAt ?? a.paidAt ?? a.createdAt).getTime()),
-    rejected: paidOrders.filter((order) => order.checkInStatus === 'rejected'),
+    admitted: ticketEntries
+      .filter((entry) => entry.ticket.checkInStatus === 'admitted')
+      .map((entry) => ({
+        ...entry.order,
+        ticketCode: entry.ticket.ticketCode,
+        checkedInAt: entry.ticket.checkedInAt ?? entry.order.checkedInAt,
+      }))
+      .sort(
+        (a, b) =>
+          new Date(b.checkedInAt ?? b.paidAt ?? b.createdAt).getTime() -
+          new Date(a.checkedInAt ?? a.paidAt ?? a.createdAt).getTime(),
+      ),
+    rejected: ticketEntries
+      .filter((entry) => entry.ticket.checkInStatus === 'rejected')
+      .map((entry) => ({ ...entry.order, ticketCode: entry.ticket.ticketCode })),
     recentScans: await getRecentTicketScans(40),
   }
 }

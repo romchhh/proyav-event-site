@@ -7,6 +7,8 @@ type CreateInvoiceInput = {
   orderReference: string
   orderDate: number
   amount: number
+  unitPrice?: number
+  quantity?: number
   productName: string
   clientFirstName: string
   clientEmail: string
@@ -74,9 +76,12 @@ export async function createWayForPayInvoice(
 
   const merchantDomainName = getMerchantDomain()
   const currency = 'UAH'
+  const quantity = Math.max(1, input.quantity ?? 1)
+  const unitPrice = input.unitPrice ?? input.amount
+  const amount = unitPrice * quantity
   const productName = [input.productName]
-  const productCount = [1]
-  const productPrice = [input.amount]
+  const productCount = [quantity]
+  const productPrice = [unitPrice]
 
   const payload = {
     transactionType: 'CREATE_INVOICE',

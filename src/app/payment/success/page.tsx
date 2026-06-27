@@ -6,6 +6,12 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { EVENT, LINKS } from '@/app/constants'
 import styles from './page.module.css'
 
+type OrderTicket = {
+  ticketCode: string
+  sequence: number
+  checkInStatus: string
+}
+
 type OrderStatus = {
   found: boolean
   status?: 'pending' | 'paid' | 'failed' | 'unknown'
@@ -13,6 +19,20 @@ type OrderStatus = {
   tierName?: string
   name?: string
   amount?: number
+  quantity?: number
+  tickets?: OrderTicket[]
+}
+
+function ticketPreviewUrl(orderReference: string, ticketCode?: string) {
+  const params = new URLSearchParams({ orderReference })
+  if (ticketCode) params.set('ticketCode', ticketCode)
+  return `/api/orders/ticket?${params.toString()}`
+}
+
+function ticketDownloadUrl(orderReference: string, ticketCode?: string) {
+  const params = new URLSearchParams({ orderReference, download: '1' })
+  if (ticketCode) params.set('ticketCode', ticketCode)
+  return `/api/orders/ticket?${params.toString()}`
 }
 
 function SuccessContent() {
@@ -22,6 +42,7 @@ function SuccessContent() {
   const [hasChecked, setHasChecked] = useState(false)
   const [shareError, setShareError] = useState<string | null>(null)
   const [isSharing, setIsSharing] = useState(false)
+  const [sharingTicketCode, setSharingTicketCode] = useState<string | null>(null)
 
   useEffect(() => {
     if (!orderReference) {
@@ -74,28 +95,29 @@ function SuccessContent() {
     orderStatus?.found === true &&
     (orderStatus.status === 'pending' || orderStatus.status === 'unknown' || !orderStatus.status)
 
-  const ticketPreviewUrl = useMemo(() => {
-    if (!orderReference || !isPaid) return null
-    return `/api/orders/ticket?orderReference=${encodeURIComponent(orderReference)}`
-  }, [orderReference, isPaid])
+  const tickets = useMemo(() => {
+    if (!isPaid || !orderReference) return []
+    if (orderStatus?.tickets?.length) {
+      return orderStatus.tickets
+    }
+    return [{ ticketCode: '', sequence: 1, checkInStatus: 'none' }]
+  }, [isPaid, orderReference, orderStatus?.tickets])
 
-  const ticketDownloadUrl = useMemo(() => {
-    if (!orderReference || !isPaid) return null
-    return `/api/orders/ticket?orderReference=${encodeURIComponent(orderReference)}&download=1`
-  }, [orderReference, isPaid])
+  const handleShare = useCallback(async (ticketCode?: string) => {
+    if (!orderReference) return
 
-  const handleShare = useCallback(async () => {
-    if (!ticketDownloadUrl || !orderReference) return
-
+    const downloadUrl = ticketDownloadUrl(orderReference, ticketCode || undefined)
     setShareError(null)
     setIsSharing(true)
+    setSharingTicketCode(ticketCode ?? '')
 
     try {
-      const response = await fetch(ticketDownloadUrl)
+      const response = await fetch(downloadUrl)
       if (!response.ok) throw new Error('download-failed')
 
       const blob = await response.blob()
-      const file = new File([blob], `PROyav-kvitok-${orderReference}.png`, { type: 'image/png' })
+      const suffix = ticketCode ? `-${ticketCode}` : ''
+      const file = new File([blob], `PROyav-kvitok${suffix}.png`, { type: 'image/png' })
       const shareData = {
         title: 'Мій квиток на PROяв івент',
         text: `Квиток на PROяв івент — ${EVENT.dateShort}, ${EVENT.venueFull}`,
@@ -122,8 +144,9 @@ function SuccessContent() {
       setShareError('Поділитися не вдалося — спробуй завантажити квиток.')
     } finally {
       setIsSharing(false)
+      setSharingTicketCode(null)
     }
-  }, [ticketDownloadUrl, orderReference])
+  }, [orderReference])
 
   if (!hasChecked) {
     return (
@@ -183,40 +206,56 @@ function SuccessContent() {
         </h1>
         <p className={styles.lead}>
           {isPaid
-            ? 'Квиток надіслано на email як файл-запрошення з QR-кодом. Можеш також зберегти або поділитися ним тут.'
+            ? tickets.length > 1
+              ? `Квитки (${tickets.length}) надіслано на email. Можеш зберегти або поділитися кожним тут.`
+              : 'Квиток надіслано на email як файл-запрошення з QR-кодом. Можеш також зберегти або поділитися ним тут.'
             : isFailed
               ? 'Платіж не пройшов або був відхилений. Спробуй оформити квиток ще раз або напиши нам.'
               : 'Зачекай кілька секунд — ми підтверджуємо платіж. Лист із файлом квитка прийде автоматично.'}
         </p>
 
-        {isPaid && ticketPreviewUrl && (
-          <div className={styles.ticketBlock}>
-            <img
-              src={ticketPreviewUrl}
-              alt="Запрошення на PROяв івент з QR-кодом"
-              className={styles.ticketPreview}
-            />
-            <div className={styles.ticketActions}>
-              <a href={ticketDownloadUrl ?? '#'} download className={styles.download}>
-                Завантажити квиток
-              </a>
-              <button
-                type="button"
-                className={styles.share}
-                onClick={handleShare}
-                disabled={isSharing}
-              >
-                {isSharing ? 'Готуємо…' : 'Поділитися'}
-              </button>
-            </div>
-            {shareError && <p className={styles.shareError}>{shareError}</p>}
+        {isPaid && tickets.length > 0 && (
+          <div className={styles.ticketGrid}>
+            {tickets.map((ticket) => {
+              const previewUrl = ticketPreviewUrl(orderReference, ticket.ticketCode || undefined)
+              const downloadUrl = ticketDownloadUrl(orderReference, ticket.ticketCode || undefined)
+              const label = tickets.length > 1 ? `Квиток ${ticket.sequence}` : 'Твій квиток'
+
+              return (
+                <div key={ticket.ticketCode || ticket.sequence} className={styles.ticketBlock}>
+                  {tickets.length > 1 && <p className={styles.ticketLabel}>{label}</p>}
+                  <img
+                    src={previewUrl}
+                    alt={`Запрошення на PROяв івент — ${label}`}
+                    className={styles.ticketPreview}
+                  />
+                  <div className={styles.ticketActions}>
+                    <a href={downloadUrl} download className={styles.download}>
+                      Завантажити
+                    </a>
+                    <button
+                      type="button"
+                      className={styles.share}
+                      onClick={() => void handleShare(ticket.ticketCode || undefined)}
+                      disabled={isSharing && sharingTicketCode === (ticket.ticketCode ?? '')}
+                    >
+                      {isSharing && sharingTicketCode === (ticket.ticketCode ?? '') ? 'Готуємо…' : 'Поділитися'}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
+        {shareError && <p className={styles.shareError}>{shareError}</p>}
 
         <div className={styles.details}>
           <p><span>Дата:</span> {EVENT.dateShort}</p>
           <p><span>Локація:</span> {EVENT.venueFull}</p>
           {orderStatus?.tierName && <p><span>Тариф:</span> {orderStatus.tierName}</p>}
+          {orderStatus?.quantity && orderStatus.quantity > 1 && (
+            <p><span>Кількість:</span> {orderStatus.quantity} квитків</p>
+          )}
           {orderReference && <p><span>Замовлення:</span> {orderReference}</p>}
           {orderStatus?.amount ? <p><span>Сума:</span> {orderStatus.amount.toLocaleString('uk-UA')} ₴</p> : null}
         </div>

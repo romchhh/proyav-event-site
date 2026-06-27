@@ -1,7 +1,7 @@
 import { sendTicketEmail } from '@/lib/ticket-email'
 import {
   decrementSale,
-  generateTicketCode,
+  ensureOrderTickets,
   getOrder,
   incrementSale,
   updateOrder,
@@ -51,6 +51,7 @@ export async function fulfillApprovedPayment(body: WayForPayCallbackBody) {
   }
 
   if (order.status === 'paid') {
+    await ensureOrderTickets(orderReference, order.quantity || 1)
     if (!order.emailSent) {
       const emailResult = await sendTicketEmail(order)
       if (!emailResult.success) {
@@ -77,12 +78,14 @@ export async function fulfillApprovedPayment(body: WayForPayCallbackBody) {
   const paidOrder = await updateOrder(orderReference, {
     status: 'paid',
     paidAt: new Date().toISOString(),
-    ticketCode: order.ticketCode ?? generateTicketCode(),
   })
 
   if (!paidOrder) {
     return { ok: false as const, reason: 'update_failed', orderReference }
   }
+
+  const quantity = paidOrder.quantity || 1
+  await ensureOrderTickets(orderReference, quantity)
 
   if (paidOrder.upgradedFromOrderReference) {
     const previousOrder = await getOrder(paidOrder.upgradedFromOrderReference)
@@ -91,14 +94,15 @@ export async function fulfillApprovedPayment(body: WayForPayCallbackBody) {
         status: 'upgraded',
         upgradedToOrderReference: orderReference,
       })
-      await decrementSale(previousOrder.tierId, previousOrder.wave)
+      await decrementSale(previousOrder.tierId, previousOrder.wave, previousOrder.quantity || 1)
     }
   }
 
-  await incrementSale(order.tierId, order.wave)
+  await incrementSale(paidOrder.tierId, paidOrder.wave, quantity)
 
-  if (!paidOrder.emailSent) {
-    const emailResult = await sendTicketEmail(paidOrder)
+  const fulfilledOrder = await getOrder(orderReference)
+  if (fulfilledOrder && !fulfilledOrder.emailSent) {
+    const emailResult = await sendTicketEmail(fulfilledOrder)
     if (!emailResult.success) {
       console.error('[wayforpay] Ticket email failed:', orderReference, emailResult.error)
     }
@@ -114,6 +118,7 @@ export async function ensureTicketEmail(orderReference: string) {
     return { sent: false, reason: 'not_eligible' as const }
   }
 
+  await ensureOrderTickets(orderReference, order.quantity || 1)
   const emailResult = await sendTicketEmail(order)
   if (!emailResult.success) {
     console.error('[ticket-email] Ensure send failed:', orderReference, emailResult.error)

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { applyDiscount, validatePromoCode } from '@/lib/promo'
-import { getPricingConfigFromContent, getTierPrice, isTierAvailable } from '@/lib/ticket-pricing'
+import { MAX_TICKETS_PER_ORDER } from '@/lib/order-tickets'
+import { getPricingConfigFromContent, getTierPrice } from '@/lib/ticket-pricing'
 import { getActivePaidOrderByEmail, getSalesCounts, saveOrder } from '@/lib/store'
 import { getSiteContent } from '@/lib/site-content'
 import type { TicketTierId } from '@/lib/tickets'
@@ -10,6 +11,7 @@ import { getSiteUrl } from '@/lib/site-url'
 
 type CheckoutBody = {
   tierId?: TicketTierId
+  quantity?: number
   name?: string
   email?: string
   phone?: string
@@ -28,6 +30,12 @@ function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
+function normalizeQuantity(value: unknown) {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return 1
+  return Math.min(MAX_TICKETS_PER_ORDER, Math.max(1, Math.floor(parsed)))
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as CheckoutBody
@@ -40,6 +48,7 @@ export async function POST(request: Request) {
     const email = body.email?.trim() ?? ''
     const phone = normalizePhone(body.phone?.trim() ?? '')
     const promoCode = body.promoCode?.trim() ?? ''
+    const quantity = normalizeQuantity(body.quantity)
 
     if (!tier || !body.tierId) {
       return NextResponse.json({ error: 'Оберіть тариф квитка' }, { status: 400 })
@@ -58,11 +67,15 @@ export async function POST(request: Request) {
     }
 
     const sales = await getSalesCounts()
-    if (!isTierAvailable(body.tierId, sales, pricingConfig)) {
-      return NextResponse.json({ error: 'Квитки цього тарифу вже розкуплені' }, { status: 409 })
+    const pricing = getTierPrice(body.tierId, sales, pricingConfig)
+
+    if (pricing.remaining < quantity) {
+      return NextResponse.json(
+        { error: `Залишилось лише ${pricing.remaining} квитк(ів) цього тарифу` },
+        { status: 409 },
+      )
     }
 
-    const pricing = getTierPrice(body.tierId, sales, pricingConfig)
     const existingOrder = await getActivePaidOrderByEmail(normalizeEmail(email))
     const upgradeQuote = buildUpgradeQuote(existingOrder, body.tierId, tier.name, pricing.price)
 
@@ -70,7 +83,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: upgradeQuote.message }, { status: 409 })
     }
 
-    let amount = pricing.price
+    if (upgradeQuote.kind === 'upgrade' && quantity > 1) {
+      return NextResponse.json(
+        { error: 'Апгрейд тарифу можливий лише для 1 квитка' },
+        { status: 409 },
+      )
+    }
+
+    let unitPrice = pricing.price
     let discountPercent = 0
     let upgradeCredit = 0
     let upgradedFromOrderReference: string | undefined
@@ -81,8 +101,10 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: promo.message }, { status: 400 })
       }
       discountPercent = promo.percent
-      amount = applyDiscount(pricing.price, promo.percent)
+      unitPrice = applyDiscount(pricing.price, promo.percent)
     }
+
+    let amount = unitPrice * quantity
 
     if (upgradeQuote.kind === 'upgrade') {
       upgradeCredit = upgradeQuote.credit
@@ -110,6 +132,7 @@ export async function POST(request: Request) {
       tierName: tier.name,
       wave: pricing.wave,
       amount,
+      quantity,
       promoCode: promoCode || undefined,
       status: 'pending',
       emailSent: false,
@@ -123,6 +146,8 @@ export async function POST(request: Request) {
       orderReference,
       orderDate,
       amount,
+      unitPrice,
+      quantity,
       productName: `PROяв івент — ${tier.name}`,
       clientFirstName: name,
       clientEmail: email,
@@ -138,7 +163,9 @@ export async function POST(request: Request) {
     return NextResponse.json({
       paymentUrl: invoice.invoiceUrl,
       amount,
-      originalAmount: pricing.price,
+      unitPrice,
+      quantity,
+      originalAmount: pricing.price * quantity,
       discountPercent,
       upgradeCredit: upgradeCredit || undefined,
       tierName: tier.name,

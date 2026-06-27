@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getOrder } from '@/lib/store'
+import { getOrder, getOrderTickets } from '@/lib/store'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -14,6 +14,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ found: false, status: 'unknown' })
   }
 
+  const tickets = await getOrderTickets(orderReference)
+
   return NextResponse.json({
     found: true,
     status: order.status,
@@ -21,6 +23,12 @@ export async function GET(request: Request) {
     tierName: order.tierName,
     name: order.name,
     amount: order.amount,
+    quantity: order.quantity || 1,
     ticketCode: order.ticketCode,
+    tickets: tickets.map((ticket) => ({
+      ticketCode: ticket.ticketCode,
+      sequence: ticket.sequence,
+      checkInStatus: ticket.checkInStatus,
+    })),
   })
 }

@@ -1,4 +1,5 @@
 import type { StoredOrder } from './store'
+import type { OrderTicket } from './order-tickets'
 
 export type CheckInStatus = 'none' | 'admitted' | 'rejected'
 
@@ -52,7 +53,7 @@ export const VERDICT_LABELS: Record<TicketVerdict, string> = {
 export const UPGRADED_TICKET_MESSAGE =
   'Гість оновив тариф — цей QR недійсний. Попросіть знайти новий квиток на email (перевірити «Спам»).'
 
-export function evaluateTicket(order: StoredOrder | null) {
+export function evaluateTicket(order: StoredOrder | null, ticket?: OrderTicket | null) {
   if (!order) {
     return {
       verdict: 'not_found' as const,
@@ -76,7 +77,9 @@ export function evaluateTicket(order: StoredOrder | null) {
     }
   }
 
-  if (order.checkInStatus === 'admitted') {
+  const checkInStatus = ticket?.checkInStatus ?? order.checkInStatus
+
+  if (checkInStatus === 'admitted') {
     return {
       verdict: 'already_used' as const,
       ok: false,
@@ -85,7 +88,7 @@ export function evaluateTicket(order: StoredOrder | null) {
     }
   }
 
-  if (order.checkInStatus === 'rejected') {
+  if (checkInStatus === 'rejected') {
     return {
       verdict: 'rejected' as const,
       ok: false,

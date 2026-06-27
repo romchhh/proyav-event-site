@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { generateTicketInvitationPng, getTicketFilename } from '@/lib/ticket-invitation'
-import { getOrder } from '@/lib/store'
+import { getOrder, getOrderTickets } from '@/lib/store'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const orderReference = searchParams.get('orderReference')?.trim()
+  const ticketCode = searchParams.get('ticketCode')?.trim()
   const download = searchParams.get('download') === '1'
 
   if (!orderReference) {
@@ -17,8 +18,13 @@ export async function GET(request: Request) {
   }
 
   try {
-    const png = await generateTicketInvitationPng(order)
-    const filename = getTicketFilename(orderReference)
+    const tickets = await getOrderTickets(orderReference)
+    const ticket = ticketCode
+      ? tickets.find((item) => item.ticketCode.toUpperCase() === ticketCode.toUpperCase())
+      : tickets[0]
+
+    const png = await generateTicketInvitationPng(order, ticket)
+    const filename = getTicketFilename(orderReference, ticket?.ticketCode)
     const disposition = download ? 'attachment' : 'inline'
 
     return new NextResponse(new Uint8Array(png), {

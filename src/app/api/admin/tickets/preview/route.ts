@@ -22,6 +22,7 @@ function buildSampleOrder(tierId: TicketTierId, tierName: string, name: string):
     tierName,
     wave: 'early',
     amount: 1700,
+    quantity: 1,
     status: 'paid',
     emailSent: true,
     createdAt: now,

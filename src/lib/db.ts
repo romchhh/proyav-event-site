@@ -91,6 +91,8 @@ function initSchema(db: Database.Database) {
 
   migrateOrdersCheckIn(db)
   migrateOrdersUpgrade(db)
+  migrateOrdersQuantity(db)
+  migrateOrderTickets(db)
   migrateTicketScans(db)
 
   db.exec(`
@@ -132,6 +134,49 @@ function migrateOrdersUpgrade(db: Database.Database) {
   if (!names.has('upgrade_credit')) {
     db.exec('ALTER TABLE orders ADD COLUMN upgrade_credit REAL')
   }
+}
+
+function migrateOrdersQuantity(db: Database.Database) {
+  const columns = db.prepare('PRAGMA table_info(orders)').all() as { name: string }[]
+  const names = new Set(columns.map((column) => column.name))
+
+  if (!names.has('quantity')) {
+    db.exec('ALTER TABLE orders ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1')
+  }
+}
+
+function migrateOrderTickets(db: Database.Database) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS order_tickets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_reference TEXT NOT NULL,
+      ticket_code TEXT NOT NULL UNIQUE,
+      sequence INTEGER NOT NULL DEFAULT 1,
+      check_in_status TEXT NOT NULL DEFAULT 'none',
+      checked_in_at TEXT,
+      check_in_note TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_order_tickets_order ON order_tickets(order_reference);
+    CREATE INDEX IF NOT EXISTS idx_order_tickets_code ON order_tickets(ticket_code);
+  `)
+
+  db.exec(`
+    INSERT INTO order_tickets (
+      order_reference, ticket_code, sequence, check_in_status, checked_in_at, check_in_note
+    )
+    SELECT
+      order_reference,
+      ticket_code,
+      1,
+      check_in_status,
+      checked_in_at,
+      check_in_note
+    FROM orders
+    WHERE ticket_code IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM order_tickets ot WHERE ot.order_reference = orders.order_reference
+      )
+  `)
 }
 
 function migrateTicketScans(db: Database.Database) {

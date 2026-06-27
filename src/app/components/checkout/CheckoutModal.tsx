@@ -33,10 +33,13 @@ export default function CheckoutModal() {
   const [tierPrice, setTierPrice] = useState(0)
   const [quote, setQuote] = useState<UpgradeQuote>({ kind: 'new' })
   const [isCheckingQuote, setIsCheckingQuote] = useState(false)
+  const [quantity, setQuantity] = useState(1)
+  const [maxQuantity, setMaxQuantity] = useState(10)
 
   useEffect(() => {
     if (isOpen && tierId) {
       setSelectedTierId(tierId)
+      setQuantity(1)
     }
   }, [isOpen, tierId])
 
@@ -75,6 +78,7 @@ export default function CheckoutModal() {
         quote?: UpgradeQuote
         tierName?: string
         tierPrice?: number
+        maxQuantity?: number
         error?: string
       }
 
@@ -86,6 +90,13 @@ export default function CheckoutModal() {
       setQuote(data.quote ?? { kind: 'new' })
       setTierName(data.tierName ?? '')
       setTierPrice(data.tierPrice ?? 0)
+      const nextMax = data.maxQuantity ?? 10
+      setMaxQuantity(nextMax)
+      if (data.quote?.kind === 'upgrade') {
+        setQuantity(1)
+      } else {
+        setQuantity((current) => Math.min(current, nextMax))
+      }
     } catch {
       setSubmitError('Не вдалося перевірити тариф')
     } finally {
@@ -147,8 +158,9 @@ export default function CheckoutModal() {
   }
 
   const pricing = useMemo(() => {
-    const basePrice = tierPrice
-    const discountedPrice = promoPercent ? Math.round(basePrice * (1 - promoPercent / 100)) : basePrice
+    const basePrice = tierPrice * quantity
+    const discountedUnit = promoPercent ? Math.round(tierPrice * (1 - promoPercent / 100)) : tierPrice
+    const discountedPrice = discountedUnit * quantity
     const upgradeCredit = quote.kind === 'upgrade' ? quote.credit : 0
     const amountDue = Math.max(0, discountedPrice - upgradeCredit)
 
@@ -157,8 +169,20 @@ export default function CheckoutModal() {
       discountedPrice,
       upgradeCredit,
       amountDue,
+      unitPrice: tierPrice,
+      discountedUnit,
     }
-  }, [promoPercent, quote, tierPrice])
+  }, [promoPercent, quantity, quote, tierPrice])
+
+  const canChangeQuantity = quote.kind !== 'upgrade' && quote.kind !== 'blocked' && maxQuantity > 1
+
+  const decreaseQuantity = () => {
+    setQuantity((current) => Math.max(1, current - 1))
+  }
+
+  const increaseQuantity = () => {
+    setQuantity((current) => Math.min(maxQuantity, current + 1))
+  }
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -177,6 +201,7 @@ export default function CheckoutModal() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tierId: selectedTierId,
+          quantity,
           name,
           email,
           phone,
@@ -320,9 +345,42 @@ export default function CheckoutModal() {
           )}
 
           {tierPrice > 0 && (
+            <div className={`${styles.field} ${styles.quantityField}`}>
+              <span className={styles.label}>Кількість квитків</span>
+              <div className={styles.quantityRow}>
+                <button
+                  type="button"
+                  className={styles.quantityBtn}
+                  onClick={decreaseQuantity}
+                  disabled={quantity <= 1 || !canChangeQuantity}
+                  aria-label="Зменшити кількість"
+                >
+                  −
+                </button>
+                <span className={styles.quantityValue} aria-live="polite">{quantity}</span>
+                <button
+                  type="button"
+                  className={styles.quantityBtn}
+                  onClick={increaseQuantity}
+                  disabled={quantity >= maxQuantity || !canChangeQuantity}
+                  aria-label="Збільшити кількість"
+                >
+                  +
+                </button>
+              </div>
+              {canChangeQuantity && maxQuantity < 10 && (
+                <p className={styles.quantityHint}>Доступно {maxQuantity} квитк(ів)</p>
+              )}
+            </div>
+          )}
+
+          {tierPrice > 0 && (
             <div className={styles.summary}>
               <div className={styles.summaryRow}>
-                <span>{tierName || 'Тариф'}</span>
+                <span>
+                  {tierName || 'Тариф'}
+                  {quantity > 1 ? ` × ${quantity}` : ''}
+                </span>
                 <span>{formatPrice(pricing.basePrice)} ₴</span>
               </div>
               {promoPercent > 0 && (

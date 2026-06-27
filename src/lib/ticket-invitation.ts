@@ -10,6 +10,8 @@ import {
 import { getSiteContent } from '@/lib/site-content'
 import { getSiteUrl } from '@/lib/site-url'
 import type { StoredOrder } from './store'
+import type { OrderTicket } from './order-tickets'
+import { getTicketQrScanValue } from './order-tickets'
 import type { TicketTierId } from '@/lib/tickets'
 
 const TIER_ACCENT: Record<TicketTierId, string> = {
@@ -49,20 +51,29 @@ function wrapText(value: string, maxChars: number) {
   return lines.slice(0, 2)
 }
 
-export function getTicketQrPayload(orderReference: string) {
+export function getTicketQrPayload(orderReference: string, ticketCode?: string) {
+  if (ticketCode) return getTicketQrScanValue(ticketCode)
   const siteUrl = getSiteUrl()
   return `${siteUrl}/payment/success?orderReference=${encodeURIComponent(orderReference)}`
 }
 
-export function getTicketFilename(orderReference: string) {
+export function getTicketFilename(orderReference: string, ticketCode?: string) {
+  if (ticketCode) {
+    const safe = ticketCode.replace(/[^a-zA-Z0-9-]/g, '')
+    return `PROyav-kvitok-${safe}.png`
+  }
   const safe = orderReference.replace(/[^a-zA-Z0-9-]/g, '')
   return `PROyav-kvitok-${safe}.png`
 }
 
-export async function generateTicketInvitationPng(order: StoredOrder): Promise<Buffer> {
+export async function generateTicketInvitationPng(
+  order: StoredOrder,
+  ticket?: OrderTicket,
+): Promise<Buffer> {
+  const ticketCode = ticket?.ticketCode ?? order.ticketCode ?? order.orderReference
   const content = await getSiteContent()
   const { event } = content
-  const qrPayload = getTicketQrPayload(order.orderReference)
+  const qrPayload = getTicketQrPayload(order.orderReference, ticket?.ticketCode ?? order.ticketCode)
   const qrBuffer = await QRCode.toBuffer(qrPayload, {
     margin: 1,
     width: 520,
@@ -76,6 +87,10 @@ export async function generateTicketInvitationPng(order: StoredOrder): Promise<B
   const accent = TIER_ACCENT[order.tierId]
   const tierLines = wrapText(order.tierName, 28)
   const nameLines = wrapText(order.name, 22)
+  const quantityLabel =
+    order.quantity > 1 && ticket
+      ? `<text x="80" y="${contentY - 8}" fill="#7a6d62" font-family="${FONT}" font-size="28" font-weight="600">Квиток ${ticket.sequence} з ${order.quantity}</text>`
+      : ''
 
   const tierText = tierLines
     .map((line, index) => `<tspan x="80" dy="${index === 0 ? 0 : 38}">${escapeXml(line)}</tspan>`)
@@ -98,6 +113,7 @@ export async function generateTicketInvitationPng(order: StoredOrder): Promise<B
   <rect width="1080" height="${contentY + 1450}" fill="#faf6f1"/>
   <rect x="48" y="48" width="984" height="${contentY + 1354}" rx="48" fill="#ffffff"/>
   ${headerSvg}
+  ${quantityLabel}
 
   <text x="80" y="${contentY + 36}" fill="#7a6d62" font-family="${FONT}" font-size="32" font-weight="600" letter-spacing="0.04em">Учасник</text>
   <text x="80" y="${contentY + 100}" fill="#1a1210" font-family="${FONT}" font-size="50" font-weight="700">${nameText}</text>
@@ -113,7 +129,7 @@ export async function generateTicketInvitationPng(order: StoredOrder): Promise<B
   <text x="80" y="${contentY + 588}" fill="#1a1210" font-family="${FONT}" font-size="34" font-weight="600">${escapeXml(event.venueFull)}</text>
 
   <text x="80" y="${contentY + 668}" fill="#7a6d62" font-family="${FONT}" font-size="32" font-weight="600" letter-spacing="0.04em">Код квитка</text>
-  <text x="80" y="${contentY + 722}" fill="#9a7858" font-family="${FONT}" font-size="34" font-weight="700" letter-spacing="0.08em">${escapeXml(order.ticketCode ?? order.orderReference)}</text>
+  <text x="80" y="${contentY + 722}" fill="#9a7858" font-family="${FONT}" font-size="34" font-weight="700" letter-spacing="0.08em">${escapeXml(ticketCode)}</text>
 
   <rect x="220" y="${contentY + 762}" width="640" height="640" rx="36" fill="#faf6f1" stroke="#e8ddd2" stroke-width="2"/>
   <image x="300" y="${contentY + 802}" width="480" height="480" href="data:image/png;base64,${qrBase64}"/>

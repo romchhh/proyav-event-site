@@ -84,6 +84,20 @@
   gap: 14px;
 }
 
+.ticketGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.ticketLabel {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--brown-mid);
+  text-align: center;
+}
+
 .ticketPreview {
   width: 100%;
   max-width: 360px;
