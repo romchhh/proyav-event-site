@@ -1,47 +1,46 @@
+import { getAllOrders } from './store'
 import { getSiteContent } from './site-content'
+import type { TicketTierId } from './tickets'
+import {
+  normalizePromoEntry,
+  TIER_PROMO_LABELS,
+  type NormalizedPromoCode,
+  type PromoCodeConfig,
+  type PromoCodesMap,
+} from './promo-presets'
 
-export type PromoCode = {
-  code: string
-  percent: number
-  label?: string
-}
+export type { PromoCodeConfig, PromoCodesMap, NormalizedPromoCode }
+export type PromoCode = NormalizedPromoCode
 
-function parseEnvPromoCodes(): PromoCode[] {
-  const raw = process.env.PROMO_CODES?.trim()
-  if (!raw) return []
-
-  try {
-    const parsed = JSON.parse(raw) as Record<string, number | { percent: number; label?: string }>
-    return Object.entries(parsed).map(([code, value]) => {
-      if (typeof value === 'number') {
-        return { code: code.toUpperCase(), percent: value }
-      }
-      return {
-        code: code.toUpperCase(),
-        percent: value.percent,
-        label: value.label,
-      }
-    })
-  } catch {
-    return []
-  }
-}
-
-async function getPromoCodes(): Promise<PromoCode[]> {
+async function getPromoCodes(): Promise<NormalizedPromoCode[]> {
   const content = await getSiteContent()
-  const fromContent = Object.entries(content.tickets.promoCodes).map(([code, percent]) => ({
-    code: code.toUpperCase(),
-    percent,
-  }))
-
-  if (fromContent.length > 0) return fromContent
-  return parseEnvPromoCodes()
+  return Object.entries(content.tickets.promoCodes as PromoCodesMap)
+    .map(([code, value]) => normalizePromoEntry(code, value))
+    .filter((item): item is NormalizedPromoCode => item !== null)
 }
 
-export async function validatePromoCode(input: string): Promise<{
+export async function getPromoUsageCount(code: string): Promise<number> {
+  const normalized = code.trim().toUpperCase()
+  if (!normalized) return 0
+
+  const orders = await getAllOrders()
+  return orders.filter(
+    (order) =>
+      order.promoCode?.toUpperCase() === normalized &&
+      (order.status === 'paid' || order.status === 'upgraded'),
+  ).length
+}
+
+export async function validatePromoCode(
+  input: string,
+  options?: { tierId?: TicketTierId },
+): Promise<{
   valid: boolean
   percent?: number
   label?: string
+  tierId?: TicketTierId
+  maxUses?: number
+  usedCount?: number
   message: string
 }> {
   const code = input.trim().toUpperCase()
@@ -54,15 +53,39 @@ export async function validatePromoCode(input: string): Promise<{
     return { valid: false, message: 'Промокод не знайдено' }
   }
 
+  if (promo.tierId && options?.tierId && promo.tierId !== options.tierId) {
+    return {
+      valid: false,
+      message: `Цей промокод діє лише на тариф «${TIER_PROMO_LABELS[promo.tierId]}»`,
+    }
+  }
+
+  const usedCount = await getPromoUsageCount(code)
+  if (promo.maxUses && usedCount >= promo.maxUses) {
+    return {
+      valid: false,
+      usedCount,
+      maxUses: promo.maxUses,
+      message: 'Цей промокод уже використано',
+    }
+  }
+
+  const tierNote = promo.tierId ? ` (лише «${TIER_PROMO_LABELS[promo.tierId]}»)` : ''
+  const usesNote = promo.maxUses === 1 ? ', одноразовий' : ''
+
   return {
     valid: true,
     percent: promo.percent,
     label: promo.label,
-    message: `Знижка ${promo.percent}% застосована`,
+    tierId: promo.tierId,
+    maxUses: promo.maxUses,
+    usedCount,
+    message: `Знижка ${promo.percent}% застосована${tierNote}${usesNote}`,
   }
 }
 
 export function applyDiscount(price: number, percent: number): number {
+  if (percent >= 100) return 0
   const discounted = price * (1 - percent / 100)
-  return Math.max(1, Math.round(discounted * 100) / 100)
+  return Math.max(0, Math.round(discounted * 100) / 100)
 }

@@ -1,4 +1,5 @@
 import type { TicketTierId, TicketWave } from '@/lib/tickets'
+import type { PromoCodeConfig } from '@/lib/promo-presets'
 
 export type ScheduleItem = {
   time: string
@@ -141,7 +142,7 @@ export type SiteContent = {
     priceMatrix: PricingMatrix
     capacityMatrix: CapacityMatrix
     waveWindows: Record<TicketWave, { start: string; end: string }>
-    promoCodes: Record<string, number>
+    promoCodes: Record<string, number | PromoCodeConfig>
   }
   venue: {
     heading: string

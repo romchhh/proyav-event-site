@@ -74,7 +74,11 @@ export const getSiteContent = cache(async (): Promise<SiteContent> => {
 })
 
 export async function saveSiteContent(patch: Partial<SiteContent>) {
-  const next = mergeContent(DEFAULT_SITE_CONTENT, patch)
+  const stored = getStoredSiteContentJson()
+  const base = stored
+    ? mergeContent(DEFAULT_SITE_CONTENT, normalizeStoredContent(stored))
+    : DEFAULT_SITE_CONTENT
+  const next = mergeContent(base, patch)
   saveStoredSiteContentJson(next)
   return next
 }

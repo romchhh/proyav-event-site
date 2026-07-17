@@ -24,6 +24,7 @@ export default function CheckoutModal() {
   const [promoOpen, setPromoOpen] = useState(false)
   const [promoCode, setPromoCode] = useState('')
   const [promoPercent, setPromoPercent] = useState(0)
+  const [promoMaxUses, setPromoMaxUses] = useState<number | null>(null)
   const [promoMessage, setPromoMessage] = useState('')
   const [promoStatus, setPromoStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [submitError, setSubmitError] = useState('')
@@ -114,6 +115,7 @@ export default function CheckoutModal() {
 
   const resetPromo = () => {
     setPromoPercent(0)
+    setPromoMaxUses(null)
     setPromoMessage('')
     setPromoStatus('idle')
   }
@@ -131,31 +133,42 @@ export default function CheckoutModal() {
       const response = await fetch('/api/promo/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: promoCode }),
+        body: JSON.stringify({ code: promoCode, tierId: selectedTierId }),
       })
       const data = (await response.json()) as {
         valid: boolean
         percent?: number
+        maxUses?: number
         message: string
       }
 
       if (data.valid && data.percent !== undefined) {
         setPromoPercent(data.percent)
+        setPromoMaxUses(data.maxUses ?? null)
         setPromoMessage(data.message)
         setPromoStatus('success')
+        if (data.maxUses === 1) setQuantity(1)
       } else {
         setPromoPercent(0)
+        setPromoMaxUses(null)
         setPromoMessage(data.message)
         setPromoStatus('error')
       }
     } catch {
       setPromoPercent(0)
+      setPromoMaxUses(null)
       setPromoMessage('Не вдалося перевірити промокод')
       setPromoStatus('error')
     } finally {
       setIsCheckingPromo(false)
     }
   }
+
+  useEffect(() => {
+    if (!isOpen || promoStatus !== 'success' || !promoCode.trim()) return
+    void applyPromo()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTierId])
 
   const pricing = useMemo(() => {
     const basePrice = tierPrice * quantity
@@ -174,7 +187,11 @@ export default function CheckoutModal() {
     }
   }, [promoPercent, quantity, quote, tierPrice])
 
-  const canChangeQuantity = quote.kind !== 'upgrade' && quote.kind !== 'blocked' && maxQuantity > 1
+  const canChangeQuantity =
+    quote.kind !== 'upgrade' &&
+    quote.kind !== 'blocked' &&
+    maxQuantity > 1 &&
+    promoMaxUses !== 1
 
   const decreaseQuantity = () => {
     setQuantity((current) => Math.max(1, current - 1))
@@ -211,6 +228,7 @@ export default function CheckoutModal() {
 
       const data = (await response.json()) as {
         paymentUrl?: string
+        free?: boolean
         error?: string
       }
 
@@ -409,7 +427,11 @@ export default function CheckoutModal() {
             className={styles.submit}
             disabled={isSubmitting || isCheckingQuote || quote.kind === 'blocked'}
           >
-            {isSubmitting ? 'Створюємо оплату...' : 'Перейти до оплати'}
+            {isSubmitting
+              ? 'Оформлюємо…'
+              : pricing.amountDue < 1 && promoPercent >= 100
+                ? 'Отримати квиток'
+                : 'Перейти до оплати'}
           </button>
 
           <p className={styles.hint}>

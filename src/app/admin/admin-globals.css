@@ -675,13 +675,35 @@
 
 .adminPromoCreate {
   display: grid;
-  grid-template-columns: 1.4fr 0.6fr auto;
+  grid-template-columns: 1.2fr 0.5fr 0.8fr 0.7fr auto;
   gap: 12px;
   align-items: end;
   padding: 18px;
   border-radius: 18px;
   background: #fff;
   border: 1px solid #e8ddd2;
+}
+
+.adminPromoSeed {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(184, 149, 111, 0.12) 0%, rgba(184, 149, 111, 0.04) 100%);
+  border: 1px solid rgba(184, 149, 111, 0.28);
+}
+
+.adminPromoSeedTitle {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #3d2f28;
+}
+
+.adminPromoCardExhausted {
+  opacity: 0.72;
 }
 
 .adminPromoCreateActions {
@@ -775,6 +797,10 @@
   .adminPromoCreate,
   .adminPromoCardBody {
     grid-template-columns: 1fr;
+  }
+
+  .adminPromoSeed {
+    flex-direction: column;
   }
 }
 

@@ -2,12 +2,21 @@ import { NextResponse } from 'next/server'
 import { applyDiscount, validatePromoCode } from '@/lib/promo'
 import { MAX_TICKETS_PER_ORDER } from '@/lib/order-tickets'
 import { getPricingConfigFromContent, getTierPrice } from '@/lib/ticket-pricing'
-import { getActivePaidOrderByEmail, getSalesCounts, saveOrder } from '@/lib/store'
+import {
+  ensureOrderTickets,
+  getActivePaidOrderByEmail,
+  getOrder,
+  getSalesCounts,
+  incrementSale,
+  saveOrder,
+  updateOrder,
+} from '@/lib/store'
 import { getSiteContent } from '@/lib/site-content'
 import type { TicketTierId } from '@/lib/tickets'
 import { buildUpgradeQuote, normalizeEmail } from '@/lib/tier-upgrade'
 import { createOrderReference, createWayForPayInvoice } from '@/lib/wayforpay'
 import { getSiteUrl } from '@/lib/site-url'
+import { sendTicketEmail } from '@/lib/ticket-email'
 
 type CheckoutBody = {
   tierId?: TicketTierId
@@ -48,7 +57,7 @@ export async function POST(request: Request) {
     const email = body.email?.trim() ?? ''
     const phone = normalizePhone(body.phone?.trim() ?? '')
     const promoCode = body.promoCode?.trim() ?? ''
-    const quantity = normalizeQuantity(body.quantity)
+    let quantity = normalizeQuantity(body.quantity)
 
     if (!tier || !body.tierId) {
       return NextResponse.json({ error: 'Оберіть тариф квитка' }, { status: 400 })
@@ -94,12 +103,22 @@ export async function POST(request: Request) {
     let discountPercent = 0
     let upgradeCredit = 0
     let upgradedFromOrderReference: string | undefined
+    let promoMaxUses: number | undefined
 
     if (promoCode) {
-      const promo = await validatePromoCode(promoCode)
+      const promo = await validatePromoCode(promoCode, { tierId: body.tierId })
       if (!promo.valid || promo.percent === undefined) {
         return NextResponse.json({ error: promo.message }, { status: 400 })
       }
+
+      promoMaxUses = promo.maxUses
+      if (promo.maxUses === 1 && quantity > 1) {
+        return NextResponse.json(
+          { error: 'Одноразовий промокод діє лише на 1 квиток' },
+          { status: 400 },
+        )
+      }
+
       discountPercent = promo.percent
       unitPrice = applyDiscount(pricing.price, promo.percent)
     }
@@ -112,16 +131,61 @@ export async function POST(request: Request) {
       amount = Math.max(0, amount - upgradeCredit)
     }
 
-    if (amount < 1) {
+    const siteUrl = getSiteUrl()
+    const orderReference = createOrderReference()
+    const isFreeOrder = amount < 1 && discountPercent >= 100
+
+    if (amount < 1 && !isFreeOrder) {
       return NextResponse.json(
         { error: 'Сума до оплати занадто мала. Напишіть нам на proYav.event@gmail.com' },
         { status: 400 },
       )
     }
 
-    const siteUrl = getSiteUrl()
-    const orderReference = createOrderReference()
-    const orderDate = Math.floor(Date.now() / 1000)
+    if (isFreeOrder) {
+      const freeQuantity = promoMaxUses === 1 ? 1 : quantity
+
+      await saveOrder({
+        orderReference,
+        name,
+        email,
+        phone,
+        tierId: body.tierId,
+        tierName: tier.name,
+        wave: pricing.wave,
+        amount: 0,
+        quantity: freeQuantity,
+        promoCode: promoCode || undefined,
+        status: 'paid',
+        emailSent: false,
+        createdAt: new Date().toISOString(),
+        paidAt: new Date().toISOString(),
+        checkInStatus: 'none',
+        upgradedFromOrderReference,
+        upgradeCredit: upgradeCredit || undefined,
+      })
+
+      await ensureOrderTickets(orderReference, freeQuantity)
+      await incrementSale(body.tierId, pricing.wave, freeQuantity)
+
+      const order = await getOrder(orderReference)
+      if (order) {
+        const emailResult = await sendTicketEmail(order)
+        await updateOrder(orderReference, { emailSent: emailResult.success })
+      }
+
+      return NextResponse.json({
+        paymentUrl: `${siteUrl}/payment/success?orderReference=${encodeURIComponent(orderReference)}`,
+        free: true,
+        amount: 0,
+        unitPrice: 0,
+        quantity: freeQuantity,
+        originalAmount: pricing.price * freeQuantity,
+        discountPercent,
+        tierName: tier.name,
+        orderReference,
+      })
+    }
 
     await saveOrder({
       orderReference,
@@ -144,7 +208,7 @@ export async function POST(request: Request) {
 
     const invoice = await createWayForPayInvoice({
       orderReference,
-      orderDate,
+      orderDate: Math.floor(Date.now() / 1000),
       amount,
       unitPrice,
       quantity,
