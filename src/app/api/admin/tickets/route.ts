@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { isAdminApiAuthorized } from '@/lib/admin-auth'
-import { getAllOrders } from '@/lib/store'
+import { cancelOrder, getAllOrders } from '@/lib/store'
 
 export async function GET(request: Request) {
   if (!isAdminApiAuthorized(request)) {
@@ -48,4 +48,28 @@ export async function GET(request: Request) {
     admitted: orders.filter((order) => order.checkInStatus === 'admitted').length,
     orders,
   })
+}
+
+export async function PATCH(request: Request) {
+  if (!isAdminApiAuthorized(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  try {
+    const body = (await request.json()) as { orderReference?: string; action?: 'cancel'; note?: string }
+    const orderReference = body.orderReference?.trim()
+
+    if (!orderReference || body.action !== 'cancel') {
+      return NextResponse.json({ error: 'Некоректний запит' }, { status: 400 })
+    }
+
+    const updated = await cancelOrder(orderReference, body.note)
+    if (!updated) {
+      return NextResponse.json({ error: 'Замовлення не знайдено' }, { status: 404 })
+    }
+
+    return NextResponse.json({ ok: true, order: updated })
+  } catch {
+    return NextResponse.json({ error: 'Не вдалося анулювати квиток' }, { status: 500 })
+  }
 }

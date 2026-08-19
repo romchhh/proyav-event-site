@@ -20,7 +20,7 @@ export type StoredOrder = {
   amount: number
   quantity: number
   promoCode?: string
-  status: 'pending' | 'paid' | 'failed' | 'upgraded'
+  status: 'pending' | 'paid' | 'failed' | 'upgraded' | 'cancelled'
   emailSent: boolean
   createdAt: string
   paidAt?: string
@@ -326,6 +326,28 @@ export async function updateOrder(orderReference: string, patch: Partial<StoredO
   return next
 }
 
+export async function cancelOrder(orderReference: string, note?: string) {
+  const order = await getOrder(orderReference)
+  if (!order) return null
+
+  if (order.status === 'cancelled') {
+    return order
+  }
+
+  if (order.status === 'paid') {
+    await decrementSale(order.tierId, order.wave, order.quantity || 1)
+  }
+
+  const next = await updateOrder(orderReference, {
+    status: 'cancelled',
+    checkInStatus: 'rejected',
+    checkedInAt: new Date().toISOString(),
+    checkInNote: note?.trim() || 'Квиток анульовано адміністратором',
+  })
+
+  return next
+}
+
 export async function getAllOrders(): Promise<StoredOrder[]> {
   const db = getDb()
   const rows = db
@@ -549,6 +571,8 @@ export async function lookupAndEvaluateTicket(query: string) {
         ? 'Оплачено'
         : order.status === 'pending'
           ? 'В обробці'
+          : order.status === 'cancelled'
+            ? 'Анулювано'
           : 'Не оплачено'
       : undefined,
     checkInLabel: checkInStatus ? CHECK_IN_LABELS[checkInStatus] : undefined,
