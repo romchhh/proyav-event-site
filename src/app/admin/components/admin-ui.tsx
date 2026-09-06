@@ -8,11 +8,40 @@ export function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
 }
 
+async function readUploadResponse(response: Response) {
+  const contentType = response.headers.get('content-type') ?? ''
+  const raw = await response.text()
+  const trimmed = raw.trim()
+  const looksJson = contentType.includes('application/json') || trimmed.startsWith('{')
+
+  if (looksJson) {
+    try {
+      return JSON.parse(trimmed) as { url?: string; error?: string }
+    } catch {
+      throw new Error('Сервер повернув пошкоджену відповідь')
+    }
+  }
+
+  if (response.status === 413 || /request entity too large|413/i.test(raw)) {
+    throw new Error('Файл занадто великий для сервера. Збільште client_max_body_size у nginx (мін. 25m).')
+  }
+
+  throw new Error(
+    response.status === 502 || response.status === 504
+      ? 'Сервер не відповів під час завантаження. Спробуйте менший файл або перевірте nginx/Next.'
+      : 'Не вдалося завантажити файл (сервер повернув HTML замість JSON). Перевірте ліміти nginx і Next.',
+  )
+}
+
 export async function uploadImage(file: File) {
+  if (file.size > 20 * 1024 * 1024) {
+    throw new Error('Максимальний розмір — 20 МБ')
+  }
+
   const formData = new FormData()
   formData.append('file', file)
   const response = await fetch('/api/admin/upload', { method: 'POST', body: formData })
-  const data = (await response.json()) as { url?: string; error?: string }
+  const data = await readUploadResponse(response)
   if (!response.ok || !data.url) throw new Error(data.error ?? 'Upload failed')
   return data.url
 }
@@ -139,7 +168,7 @@ export function ImageField({ label, value, onChange }: ImageFieldProps) {
         ) : (
           <div className="adminDropEmpty">
             <p className="adminDropTitle">{uploading ? 'Завантажуємо…' : 'Перетягніть фото сюди'}</p>
-            <p className="adminDropHint">JPG, PNG, WEBP, GIF · до 8 МБ</p>
+            <p className="adminDropHint">JPG, PNG, WEBP, GIF · до 20 МБ</p>
           </div>
         )}
 
@@ -248,7 +277,7 @@ export function GalleryImagesField({ images, onChange }: GalleryImagesFieldProps
         }}
       >
         <p className="adminDropTitle">{uploading ? 'Завантажуємо…' : 'Перетягніть кілька фото сюди'}</p>
-        <p className="adminDropHint">можна додати одразу багато файлів · JPG, PNG, WEBP, GIF</p>
+        <p className="adminDropHint">можна додати одразу багато файлів · JPG, PNG, WEBP, GIF · до 20 МБ кожен</p>
         <input
           ref={inputRef}
           type="file"

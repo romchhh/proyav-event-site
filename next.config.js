@@ -8,7 +8,11 @@ const nextConfig = {
   },
   experimental: {
     serverComponentsExternalPackages: ['better-sqlite3'],
+    // Allow larger admin image uploads (nginx must allow the same or more)
+    middlewareClientMaxBodySize: '25mb',
+    proxyClientMaxBodySize: '25mb',
     serverActions: {
+      bodySizeLimit: '25mb',
       allowedOrigins: ['secure.wayforpay.com'],
     },
   },
