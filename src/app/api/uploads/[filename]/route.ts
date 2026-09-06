@@ -5,11 +5,12 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 type RouteContext = {
-  params: { filename: string }
+  params: Promise<{ filename: string }>
 }
 
 export async function GET(_request: Request, context: RouteContext) {
-  const filename = context.params.filename?.trim() ?? ''
+  const { filename: rawFilename } = await context.params
+  const filename = rawFilename?.trim() ?? ''
   const file = await readUploadedFile(filename)
 
   if (!file) {
