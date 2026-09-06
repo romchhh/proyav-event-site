@@ -83,7 +83,13 @@
 .adminImageField {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+}
+
+.adminImageLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #3d2f28;
 }
 
 .adminImagePreview {
@@ -92,6 +98,141 @@
   object-fit: cover;
   border-radius: 10px;
   border: 1px solid #e8ddd2;
+}
+
+.adminDropZone {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1.5px dashed #d9c8b5;
+  background: #fffdfb;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.adminDropZone:hover,
+.adminDropZoneActive {
+  border-color: #b8956f;
+  background: rgba(184, 149, 111, 0.08);
+  box-shadow: 0 0 0 3px rgba(184, 149, 111, 0.12);
+}
+
+.adminDropZoneFilled {
+  border-style: solid;
+}
+
+.adminDropEmpty,
+.adminDropPreviewMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.adminDropPreviewWrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.adminDropPreview {
+  width: 112px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid #e8ddd2;
+  flex-shrink: 0;
+  background: #faf6f1;
+}
+
+.adminDropTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1210;
+}
+
+.adminDropHint {
+  margin: 0;
+  font-size: 12px;
+  color: #8a7d72;
+}
+
+.adminImageActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.adminImageError {
+  margin: 0;
+  font-size: 13px;
+  color: #b42318;
+}
+
+.adminGalleryField {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.adminGalleryDropZone {
+  align-items: center;
+  text-align: center;
+  padding: 28px 18px;
+}
+
+.adminGalleryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.adminGalleryCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #e8ddd2;
+  cursor: grab;
+}
+
+.adminGalleryCardDragging {
+  opacity: 0.55;
+}
+
+.adminGalleryThumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 10px;
+  background: #faf6f1;
+}
+
+.adminGalleryCardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.adminGalleryCardIndex {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8a7d72;
+}
+
+.adminGalleryUrl {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #e8ddd2;
+  border-radius: 10px;
+  font-size: 12px;
+  color: #3d2f28;
+  background: #faf6f1;
 }
 
 .adminUploadBtn {

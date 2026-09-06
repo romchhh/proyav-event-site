@@ -30,6 +30,7 @@ yarn-error.log*
 /data/site-content.json
 /data/*.db
 /data/*.db-*
+/data/uploads/
 
 # typescript
 *.tsbuildinfo

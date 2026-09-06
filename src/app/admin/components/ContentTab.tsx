@@ -3,7 +3,7 @@
 import type { SiteContent } from '@/lib/site-content/types'
 import type { TicketTierId, TicketWave } from '@/lib/tickets'
 import type { ContentBlockId } from './content-blocks'
-import { ContentEditorProps, Field, ImageField, createId } from './admin-ui'
+import { ContentEditorProps, Field, ImageField, GalleryImagesField, createId } from './admin-ui'
 
 const WAVES: TicketWave[] = ['early', 'main', 'last']
 
@@ -193,17 +193,10 @@ export default function ContentTab({ content, onChange, activeBlock }: ContentTa
           <h2 className="adminBlockTitle">Галерея</h2>
           <Field label="Заголовок" value={content.gallery.heading} onChange={(v) => patch({ gallery: { ...content.gallery, heading: v } })} />
           <Field label="Підзаголовок" value={content.gallery.subheading} onChange={(v) => patch({ gallery: { ...content.gallery, subheading: v } })} multiline markdown />
-          {content.gallery.images.map((image, index) => (
-            <div key={index} className="adminRowCard">
-              <ImageField label={`Фото ${index + 1}`} value={image} onChange={(v) => {
-                const images = [...content.gallery.images]
-                images[index] = v
-                patch({ gallery: { ...content.gallery, images } })
-              }} />
-              <button type="button" className="adminDangerBtn" onClick={() => patch({ gallery: { ...content.gallery, images: content.gallery.images.filter((_, i) => i !== index) } })}>Видалити</button>
-            </div>
-          ))}
-          <button type="button" className="adminGhostBtn" onClick={() => patch({ gallery: { ...content.gallery, images: [...content.gallery.images, '/images/gallery/gallery-01.jpg'] } })}>+ Додати фото</button>
+          <GalleryImagesField
+            images={content.gallery.images}
+            onChange={(images) => patch({ gallery: { ...content.gallery, images } })}
+          />
         </div>
       )}
 

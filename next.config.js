@@ -12,5 +12,13 @@ const nextConfig = {
       allowedOrigins: ['secure.wayforpay.com'],
     },
   },
+  async rewrites() {
+    return [
+      {
+        source: '/images/uploads/:filename',
+        destination: '/api/uploads/:filename',
+      },
+    ]
+  },
 }
 module.exports = nextConfig

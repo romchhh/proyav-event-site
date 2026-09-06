@@ -1,10 +1,9 @@
-import { randomBytes } from 'crypto'
-import { mkdir, writeFile } from 'fs/promises'
-import path from 'path'
 import { NextResponse } from 'next/server'
 import { isAdminApiAuthorized } from '@/lib/admin-auth'
+import { saveUploadedFile } from '@/lib/uploads'
 
-const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export async function POST(request: Request) {
   if (!isAdminApiAuthorized(request)) {
@@ -19,24 +18,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Файл не знайдено' }, { status: 400 })
     }
 
-    if (!ALLOWED_TYPES.has(file.type)) {
-      return NextResponse.json({ error: 'Дозволені лише JPG, PNG, WEBP, GIF' }, { status: 400 })
-    }
-
-    if (file.size > 8 * 1024 * 1024) {
-      return NextResponse.json({ error: 'Максимальний розмір — 8 МБ' }, { status: 400 })
-    }
-
-    const ext = file.type.split('/')[1]?.replace('jpeg', 'jpg') ?? 'bin'
-    const filename = `${Date.now()}-${randomBytes(4).toString('hex')}.${ext}`
-    const uploadDir = path.join(process.cwd(), 'public', 'images', 'uploads')
-    await mkdir(uploadDir, { recursive: true })
-
-    const buffer = Buffer.from(await file.arrayBuffer())
-    await writeFile(path.join(uploadDir, filename), buffer)
-
-    return NextResponse.json({ url: `/images/uploads/${filename}` })
-  } catch {
-    return NextResponse.json({ error: 'Не вдалося завантажити файл' }, { status: 500 })
+    const saved = await saveUploadedFile(file)
+    return NextResponse.json({ url: saved.url })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Не вдалося завантажити файл'
+    const status = message.includes('Дозволені') || message.includes('Максимальний') ? 400 : 500
+    return NextResponse.json({ error: message }, { status })
   }
 }

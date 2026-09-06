@@ -39,7 +39,7 @@ export default function AdminDashboard() {
       })
       if (!response.ok) throw new Error('save failed')
       setDirty(false)
-      setMessage('Збережено')
+      setMessage('Збережено. Зміни вже на сайті — оновіть сторінку сайту, якщо вона вже відкрита.')
     } catch {
       setMessage('Помилка збереження')
     } finally {
