@@ -10,7 +10,7 @@
 }
 
 .card {
-  max-width: 640px;
+  max-width: 860px;
   width: 100%;
   padding: 32px 36px;
   border-radius: var(--radius-lg);
@@ -37,7 +37,60 @@
   font-size: clamp(15px, 1.4vw, 17px);
   color: var(--brown-soft);
   line-height: 1.65;
-  max-width: 480px;
+  max-width: 520px;
+}
+
+.logos {
+  list-style: none;
+  margin: 8px 0 4px;
+  padding: 0;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.logoItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.logoLink {
+  display: block;
+  width: 100%;
+  text-decoration: none;
+  transition: transform 0.2s var(--ease-out);
+}
+
+.logoLink:hover {
+  transform: translateY(-2px);
+}
+
+.logoFrame {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  max-width: 140px;
+  margin: 0 auto;
+  border-radius: var(--radius-md);
+  background: #faf6f1;
+  border: 1px solid var(--beige-dark);
+  overflow: hidden;
+}
+
+.logoImage {
+  object-fit: contain;
+  padding: 12px;
+}
+
+.logoName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brown-mid);
+  line-height: 1.3;
 }
 
 .cta {
@@ -90,8 +143,22 @@
   text-decoration: underline;
 }
 
+@media (max-width: 720px) {
+  .logos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 480px) {
   .card {
     padding: 28px 24px;
+  }
+
+  .logos {
+    gap: 12px;
+  }
+
+  .logoFrame {
+    max-width: 120px;
   }
 }

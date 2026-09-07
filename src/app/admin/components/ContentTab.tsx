@@ -229,6 +229,68 @@ export default function ContentTab({ content, onChange, activeBlock }: ContentTa
           <Field label="Заголовок" value={content.partners.heading} onChange={(v) => patch({ partners: { ...content.partners, heading: v } })} />
           <Field label="Текст" value={content.partners.subheading} onChange={(v) => patch({ partners: { ...content.partners, subheading: v } })} multiline markdown />
           <Field label="Кнопка" value={content.partners.cta} onChange={(v) => patch({ partners: { ...content.partners, cta: v } })} />
+          {(content.partners.items ?? []).map((partner, index) => (
+            <div key={partner.id} className="adminRowCard">
+              <Field
+                label="Назва"
+                value={partner.name}
+                onChange={(v) => {
+                  const items = [...(content.partners.items ?? [])]
+                  items[index] = { ...partner, name: v }
+                  patch({ partners: { ...content.partners, items } })
+                }}
+              />
+              <Field
+                label="Посилання (опційно)"
+                value={partner.href ?? ''}
+                onChange={(v) => {
+                  const items = [...(content.partners.items ?? [])]
+                  items[index] = { ...partner, href: v || undefined }
+                  patch({ partners: { ...content.partners, items } })
+                }}
+              />
+              <ImageField
+                label="Логотип"
+                value={partner.logo}
+                onChange={(v) => {
+                  const items = [...(content.partners.items ?? [])]
+                  items[index] = { ...partner, logo: v }
+                  patch({ partners: { ...content.partners, items } })
+                }}
+              />
+              <button
+                type="button"
+                className="adminDangerBtn"
+                onClick={() =>
+                  patch({
+                    partners: {
+                      ...content.partners,
+                      items: (content.partners.items ?? []).filter((_, i) => i !== index),
+                    },
+                  })
+                }
+              >
+                Видалити партнера
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            className="adminGhostBtn"
+            onClick={() =>
+              patch({
+                partners: {
+                  ...content.partners,
+                  items: [
+                    ...(content.partners.items ?? []),
+                    { id: createId('partner'), name: 'Новий партнер', logo: '' },
+                  ],
+                },
+              })
+            }
+          >
+            + Додати партнера
+          </button>
         </div>
       )}
 

@@ -51,6 +51,13 @@ export type TicketTierContent = {
 export type PricingMatrix = Record<TicketTierId, Record<TicketWave, number>>
 export type CapacityMatrix = Record<TicketTierId, Record<TicketWave, number>>
 
+export type PartnerItem = {
+  id: string
+  name: string
+  logo: string
+  href?: string
+}
+
 export type SiteContent = {
   event: {
     name: string
@@ -134,6 +141,7 @@ export type SiteContent = {
     heading: string
     subheading: string
     cta: string
+    items: PartnerItem[]
   }
   tickets: {
     heading: string

@@ -114,6 +114,31 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     subheading:
       'PROяв івент — простір для брендів і проєктів, які розділяють наші цінності. Хочеш долучитись як партнер події?',
     cta: 'Стати партнером події',
+    items: [
+      {
+        id: 'divchata-za-kermom',
+        name: 'DIV4ATA ZA KERMOM',
+        logo: '/images/partners/divchata-za-kermom.png',
+        href: 'https://www.instagram.com/div4ata_za_kermom/',
+      },
+      {
+        id: 'jysk',
+        name: 'JYSK',
+        logo: '/images/partners/jysk.png',
+        href: 'https://jysk.ua/',
+      },
+      {
+        id: 'it-step-school',
+        name: 'IT Step School',
+        logo: '/images/partners/it-step-school.png',
+        href: 'https://itstep.org/',
+      },
+      {
+        id: 'meli',
+        name: 'МелІ',
+        logo: '/images/partners/meli.jpg',
+      },
+    ],
   },
   tickets: {
     heading: 'Квитки на PROяв івент',
