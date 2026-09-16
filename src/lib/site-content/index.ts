@@ -2,7 +2,7 @@ import { cache } from 'react'
 import { unstable_noStore as noStore } from 'next/cache'
 import { getStoredSiteContentJson, saveStoredSiteContentJson } from '../db'
 import { DEFAULT_SITE_CONTENT } from './defaults'
-import type { SiteContent } from './types'
+import type { PartnerItem, SiteContent } from './types'
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -36,6 +36,21 @@ function mergeContent(base: SiteContent, patch: Partial<SiteContent>): SiteConte
   return result
 }
 
+function mergePartnerItems(storedItems: PartnerItem[] | undefined): PartnerItem[] {
+  const current = Array.isArray(storedItems) ? [...storedItems] : []
+  const knownIds = new Set(current.map((item) => item.id))
+  const knownLogos = new Set(current.map((item) => item.logo))
+
+  for (const partner of DEFAULT_SITE_CONTENT.partners.items) {
+    if (knownIds.has(partner.id) || knownLogos.has(partner.logo)) continue
+    current.push(partner)
+    knownIds.add(partner.id)
+    knownLogos.add(partner.logo)
+  }
+
+  return current
+}
+
 function normalizeStoredContent(stored: Partial<SiteContent>): Partial<SiteContent> {
   const normalized: Partial<SiteContent> = { ...stored }
 
@@ -59,6 +74,14 @@ function normalizeStoredContent(stored: Partial<SiteContent>): Partial<SiteConte
       heading: DEFAULT_SITE_CONTENT.gallery.heading,
       subheading: legacyGallery.subheading ?? DEFAULT_SITE_CONTENT.gallery.subheading,
       images: legacyGallery.images ?? DEFAULT_SITE_CONTENT.gallery.images,
+    }
+  }
+
+  if (stored.partners && typeof stored.partners === 'object') {
+    normalized.partners = {
+      ...DEFAULT_SITE_CONTENT.partners,
+      ...stored.partners,
+      items: mergePartnerItems(stored.partners.items),
     }
   }
 

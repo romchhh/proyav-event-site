@@ -44,9 +44,10 @@ export default function PartnersSection({ content }: { content: SiteContent }) {
                         {logo}
                       </a>
                     ) : (
-                      logo
+                      <span className={styles.logoLink} role="img" aria-label={partner.name}>
+                        {logo}
+                      </span>
                     )}
-                    <span className={styles.logoName}>{partner.name}</span>
                   </li>
                 )
               })}
