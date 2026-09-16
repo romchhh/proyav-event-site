@@ -259,6 +259,25 @@
   border: 1px solid #efe5da;
 }
 
+.adminRowCardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.adminRowCardTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #3d2f28;
+}
+
+.adminRowCardActions {
+  display: flex;
+  gap: 6px;
+}
+
 .adminGhostBtn,
 .adminDangerBtn {
   width: fit-content;
@@ -957,6 +976,10 @@
   gap: 12px;
 }
 
+.adminStatsWide {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .adminStats div {
   padding: 16px;
   border-radius: 16px;
@@ -973,6 +996,24 @@
 .adminStats span {
   font-size: 13px;
   color: #8a7d72;
+}
+
+.adminStatus-free {
+  background: #f4f4f5;
+  color: #52525b;
+}
+
+.adminStatus-money {
+  background: #edf7ef;
+  color: #2f6b3b;
+}
+
+.adminTicketActions {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .adminTicketsToolbar {
@@ -1062,10 +1103,10 @@
   margin-bottom: 2px;
 }
 
-.adminTicketActions {
-  margin-top: 12px;
-  display: flex;
-  justify-content: flex-end;
+@media (max-width: 900px) {
+  .adminStatsWide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 768px) {
@@ -1079,6 +1120,10 @@
   }
 
   .adminPriceRow {
+    grid-template-columns: 1fr;
+  }
+
+  .adminStatsWide {
     grid-template-columns: 1fr;
   }
 }

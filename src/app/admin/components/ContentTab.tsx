@@ -120,10 +120,42 @@ export default function ContentTab({ content, onChange, activeBlock }: ContentTa
       {activeBlock === 'speakers' && (
         <div className="adminBlockPanel">
           <h2 className="adminBlockTitle">Спікери</h2>
+          <p className="adminHint">Порядок у списку = порядок на сайті. Кнопки ↑ / ↓ пересувають спікера.</p>
           <Field label="Заголовок" value={content.speakers.heading} onChange={(v) => patch({ speakers: { ...content.speakers, heading: v } })} />
           <Field label="Підзаголовок" value={content.speakers.subheading} onChange={(v) => patch({ speakers: { ...content.speakers, subheading: v } })} multiline markdown />
           {content.speakers.items.map((speaker, index) => (
             <div key={speaker.id} className="adminRowCard">
+              <div className="adminRowCardHead">
+                <p className="adminRowCardTitle">Спікер {index + 1}</p>
+                <div className="adminRowCardActions">
+                  <button
+                    type="button"
+                    className="adminGhostBtn"
+                    disabled={index === 0}
+                    onClick={() => {
+                      const items = [...content.speakers.items]
+                      const [item] = items.splice(index, 1)
+                      items.splice(index - 1, 0, item)
+                      patch({ speakers: { ...content.speakers, items } })
+                    }}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    className="adminGhostBtn"
+                    disabled={index === content.speakers.items.length - 1}
+                    onClick={() => {
+                      const items = [...content.speakers.items]
+                      const [item] = items.splice(index, 1)
+                      items.splice(index + 1, 0, item)
+                      patch({ speakers: { ...content.speakers, items } })
+                    }}
+                  >
+                    ↓
+                  </button>
+                </div>
+              </div>
               <Field label="Імʼя" value={speaker.name} onChange={(v) => {
                 const items = [...content.speakers.items]
                 items[index] = { ...speaker, name: v }

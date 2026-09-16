@@ -141,19 +141,14 @@
 }
 
 .photo {
-  aspect-ratio: 1;
+  width: 100%;
   background: linear-gradient(160deg, var(--brown) 0%, var(--brown-mid) 60%, rgba(184,149,111,0.4) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
-}
-
-.photo::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgba(26,18,16,0.3) 0%, transparent 60%);
+  min-height: 180px;
+  overflow: hidden;
 }
 
 .photo span {
@@ -163,10 +158,14 @@
   color: var(--rose-gold-light);
   position: relative;
   z-index: 1;
+  padding: 48px 0;
 }
 
 .photoImage {
-  object-fit: cover;
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
 }
 
 .photoEmpty {

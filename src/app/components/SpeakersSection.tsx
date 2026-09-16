@@ -88,7 +88,14 @@ export default function SpeakersSection({ content }: { content: SiteContent }) {
                 <article key={speaker.id} className={styles.card}>
                   <div className={styles.photo}>
                     {speaker.photo ? (
-                      <Image src={speaker.photo} alt={speaker.name} fill sizes="280px" className={styles.photoImage} />
+                      <Image
+                        src={speaker.photo}
+                        alt={speaker.name}
+                        width={640}
+                        height={800}
+                        sizes="(max-width: 900px) 78vw, 320px"
+                        className={styles.photoImage}
+                      />
                     ) : (
                       <span>{index + 1}</span>
                     )}

@@ -138,6 +138,17 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
         name: 'МелІ',
         logo: '/images/partners/meli.jpg',
       },
+      {
+        id: 'marchello',
+        name: 'Marchello.ua',
+        logo: '/images/partners/marchello.png',
+        href: 'https://marchello.ua/',
+      },
+      {
+        id: 'pidvolochysk-consulting-center',
+        name: 'Pidvolochysk Consulting Center',
+        logo: '/images/partners/pidvolochysk-consulting-center.jpg',
+      },
     ],
   },
   tickets: {

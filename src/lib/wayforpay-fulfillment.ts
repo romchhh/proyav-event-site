@@ -128,3 +128,24 @@ export async function ensureTicketEmail(orderReference: string) {
   await updateOrder(orderReference, { emailSent: true })
   return { sent: true as const }
 }
+
+/** Force resend ticket invitation email (admin). Works even if already sent. */
+export async function resendTicketEmail(orderReference: string) {
+  const order = await getOrder(orderReference)
+  if (!order) {
+    return { sent: false, reason: 'not_found' as const }
+  }
+  if (order.status !== 'paid') {
+    return { sent: false, reason: 'not_paid' as const }
+  }
+
+  await ensureOrderTickets(orderReference, order.quantity || 1)
+  const emailResult = await sendTicketEmail(order)
+  if (!emailResult.success) {
+    console.error('[ticket-email] Resend failed:', orderReference, emailResult.error)
+    return { sent: false, reason: 'send_failed' as const, error: emailResult.error }
+  }
+
+  await updateOrder(orderReference, { emailSent: true })
+  return { sent: true as const, email: order.email }
+}
