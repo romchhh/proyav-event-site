@@ -55,6 +55,8 @@ function OrderMiniCard({ order }: { order: StoredOrder }) {
       <div className="adminTicketMeta">
         <p><span>Email</span>{order.email}</p>
         <p><span>Телефон</span>{order.phone}</p>
+        <p><span>Промокод</span>{order.promoCode || '—'}</p>
+        <p><span>Сума</span>{order.amount.toLocaleString('uk-UA')} ₴</p>
         {order.checkedInAt && <p><span>Вхід</span>{formatWhen(order.checkedInAt)}</p>}
       </div>
     </article>
@@ -308,6 +310,18 @@ export default function CheckInPanel() {
                 {order.ticketCode ?? 'Без коду'}
                 {result.paymentLabel ? ` · ${result.paymentLabel}` : ''}
                 {result.checkInLabel ? ` · ${result.checkInLabel}` : ''}
+              </p>
+              {order.promoCode ? (
+                <p className="adminVerdictPromo">
+                  Промокод: <strong>{order.promoCode}</strong>
+                  {order.amount < 1 ? ' · безкоштовний квиток' : ''}
+                </p>
+              ) : (
+                <p className="adminVerdictPromo adminVerdictPromoMuted">Промокод не використовувався</p>
+              )}
+              <p className="adminVerdictMeta">
+                Сума: {order.amount.toLocaleString('uk-UA')} ₴
+                {(order.quantity || 1) > 1 ? ` · квитків у замовленні: ${order.quantity}` : ''}
               </p>
             </>
           ) : (

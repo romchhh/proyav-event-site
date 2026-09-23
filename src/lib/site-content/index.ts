@@ -85,6 +85,17 @@ function normalizeStoredContent(stored: Partial<SiteContent>): Partial<SiteConte
     }
   }
 
+  if (stored.schedule && typeof stored.schedule === 'object' && Array.isArray(stored.schedule.items)) {
+    normalized.schedule = {
+      ...stored.schedule,
+      items: stored.schedule.items.map((item) => {
+        if (item.note !== 'VIP — окремо з організаторками') return item
+        const { note: _removed, ...rest } = item
+        return rest
+      }),
+    }
+  }
+
   return normalized
 }
 

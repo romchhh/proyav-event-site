@@ -718,6 +718,28 @@
   color: #5c4a40;
 }
 
+.adminVerdictPromo {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(184, 149, 111, 0.12);
+  border: 1px solid rgba(184, 149, 111, 0.28);
+  font-size: 15px;
+  color: #3d2f28;
+}
+
+.adminVerdictPromo strong {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #9a7858;
+}
+
+.adminVerdictPromoMuted {
+  background: #f4f4f5;
+  border-color: #e4e4e7;
+  color: #71717a;
+}
+
 .adminVerdictMessage {
   margin: 14px 0 0;
   font-size: 16px;

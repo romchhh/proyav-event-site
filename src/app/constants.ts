@@ -121,7 +121,6 @@ export const SCHEDULE = [
     time: '20:00–21:00',
     title: 'Afterparty',
     details: 'DJ сет, танці та фінальні фото',
-    note: 'VIP — окремо з організаторками',
   },
   {
     time: '21:00',
